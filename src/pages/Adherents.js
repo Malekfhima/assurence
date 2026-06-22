@@ -499,15 +499,44 @@ const Adherents = () => {
               )}
               {form.sous_adherents.map((sub, index) => (
                 <div key={index} className="sub-row">
-                  <input placeholder="Nom *" value={sub.nom} onChange={(e) => updateSousAdherent(index, 'nom', e.target.value)} />
-                  <input placeholder="Prénom *" value={sub.prenom} onChange={(e) => updateSousAdherent(index, 'prenom', e.target.value)} />
-                  <input type="date" value={sub.date_naissance} onChange={(e) => updateSousAdherent(index, 'date_naissance', e.target.value)} />
-                  <select value={sub.sexe} onChange={(e) => updateSousAdherent(index, 'sexe', e.target.value)}>
-                    <option value="">Sexe</option>
+                  <input
+                    type="date"
+                    value={sub.date_naissance}
+                    onChange={(e) => updateSousAdherent(index, 'date_naissance', e.target.value)}
+                    required
+                    title="Date de naissance *"
+                  />
+                  <select
+                    value={sub.sexe}
+                    onChange={(e) => updateSousAdherent(index, 'sexe', e.target.value)}
+                    required
+                  >
+                    <option value="" disabled>Sexe *</option>
                     <option value="M">M</option>
                     <option value="F">F</option>
                   </select>
-                  <input placeholder="Lien parenté" value={sub.lien_parente} onChange={(e) => updateSousAdherent(index, 'lien_parente', e.target.value)} />
+                  <input
+                    placeholder="Nom *"
+                    value={sub.nom}
+                    onChange={(e) => updateSousAdherent(index, 'nom', e.target.value)}
+                    required
+                  />
+                  <input
+                    placeholder="Prénom *"
+                    value={sub.prenom}
+                    onChange={(e) => updateSousAdherent(index, 'prenom', e.target.value)}
+                    required
+                  />
+                  <select
+                    value={sub.lien_parente}
+                    onChange={(e) => updateSousAdherent(index, 'lien_parente', e.target.value)}
+                    required
+                  >
+                    <option value="" disabled>Lien parenté *</option>
+                    {LIENS_PARENTE.map(lien => (
+                      <option key={lien} value={lien}>{lien}</option>
+                    ))}
+                  </select>
                   <button type="button" className="btn-remove-row" onClick={() => removeSousAdherent(index)} title="Retirer">
                     <Trash2 size={16} />
                   </button>
