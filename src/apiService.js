@@ -1,6 +1,27 @@
 // En dev, les appels vers /api sont relayés vers le serveur PHP via le proxy de package.json.
 export const API_BASE_URL = '/api';
 
+const getAuthHeaders = (withJson = false) => {
+    const token = localStorage.getItem('auth_token');
+    const headers = { 'Accept': 'application/json' };
+    if (withJson) {
+        headers['Content-Type'] = 'application/json';
+    }
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+};
+
+const handleApiResponse = async (response) => {
+    if (response.status === 401) {
+        logoutApi();
+        window.location.href = '/';
+        return null;
+    }
+    return response.json();
+};
+
 export const loginApi = async (credentials) => {
     const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
@@ -18,7 +39,6 @@ export const loginApi = async (credentials) => {
         if (data.user) {
             localStorage.setItem('auth_user', JSON.stringify(data.user));
         }
-        // Marquer la session comme active même sans token
         localStorage.setItem('is_logged_in', 'true');
     }
     return { ok: response.ok, data };
@@ -35,24 +55,52 @@ export const isAuthenticated = () => {
 };
 
 export const fetchApi = async (endpoint) => {
-    const token = localStorage.getItem('auth_token');
-    const headers = {
-        'Accept': 'application/json'
-    };
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
     try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, { headers });
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            headers: getAuthHeaders()
+        });
+        return handleApiResponse(response);
+    } catch (error) {
+        console.error('Erreur API:', error);
+        return null;
+    }
+};
 
-        if (response.status === 401) {
-            logoutApi();
-            window.location.href = '/';
-            return null;
-        }
+export const postApi = async (endpoint, body) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'POST',
+            headers: getAuthHeaders(true),
+            body: JSON.stringify(body)
+        });
+        return handleApiResponse(response);
+    } catch (error) {
+        console.error('Erreur API:', error);
+        return null;
+    }
+};
 
-        return response.json();
+export const putApi = async (endpoint, body) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(true),
+            body: JSON.stringify(body)
+        });
+        return handleApiResponse(response);
+    } catch (error) {
+        console.error('Erreur API:', error);
+        return null;
+    }
+};
+
+export const deleteApi = async (endpoint) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        return handleApiResponse(response);
     } catch (error) {
         console.error('Erreur API:', error);
         return null;
