@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.3
+-- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Hôte : 127.0.0.1:3306
--- Généré le : lun. 22 juin 2026 à 08:01
--- Version du serveur : 8.0.44
--- Version de PHP : 8.3.28
+-- Hôte : 127.0.0.1
+-- Généré le : lun. 22 juin 2026 à 09:55
+-- Version du serveur : 10.4.32-MariaDB
+-- Version de PHP : 8.0.30
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -27,10 +27,9 @@ SET time_zone = "+00:00";
 -- Structure de la table `adherent`
 --
 
-DROP TABLE IF EXISTS `adherent`;
-CREATE TABLE IF NOT EXISTS `adherent` (
-  `id_adherent` int NOT NULL AUTO_INCREMENT,
-  `matricule` int NOT NULL,
+CREATE TABLE `adherent` (
+  `id_adherent` int(11) NOT NULL,
+  `matricule` int(11) NOT NULL,
   `nom` varchar(100) NOT NULL,
   `prenom` varchar(100) NOT NULL,
   `etat_civil` varchar(50) DEFAULT NULL,
@@ -38,13 +37,12 @@ CREATE TABLE IF NOT EXISTS `adherent` (
   `date_naissance` date DEFAULT NULL,
   `date_adhesion` date DEFAULT NULL,
   `adresse` varchar(255) DEFAULT NULL,
-  `cin` int DEFAULT NULL,
+  `cin` int(11) DEFAULT NULL,
   `telephone` varchar(20) DEFAULT NULL,
-  `identifiant` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `mot_de_passe` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `statut` varchar(100) NOT NULL,
-  PRIMARY KEY (`id_adherent`)
-) ENGINE=InnoDB AUTO_INCREMENT=149 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `identifiant` varchar(100) DEFAULT NULL,
+  `mot_de_passe` varchar(255) DEFAULT NULL,
+  `statut` varchar(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Déchargement des données de la table `adherent`
@@ -206,16 +204,13 @@ INSERT INTO `adherent` (`id_adherent`, `matricule`, `nom`, `prenom`, `etat_civil
 -- Structure de la table `bordereau`
 --
 
-DROP TABLE IF EXISTS `bordereau`;
-CREATE TABLE IF NOT EXISTS `bordereau` (
-  `id_bordereau` int NOT NULL AUTO_INCREMENT,
-  `id_bulletin` int NOT NULL,
-  `numero_bordereau` int NOT NULL,
+CREATE TABLE `bordereau` (
+  `id_bordereau` int(11) NOT NULL,
+  `id_bulletin` int(11) NOT NULL,
+  `numero_bordereau` int(11) NOT NULL,
   `date_envoi` date DEFAULT NULL,
   `statut` varchar(50) DEFAULT NULL,
-  `commentaire` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id_bordereau`),
-  UNIQUE KEY `id_bulletin` (`id_bulletin`)
+  `commentaire` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -224,19 +219,16 @@ CREATE TABLE IF NOT EXISTS `bordereau` (
 -- Structure de la table `bulletin_soin`
 --
 
-DROP TABLE IF EXISTS `bulletin_soin`;
-CREATE TABLE IF NOT EXISTS `bulletin_soin` (
-  `id_bulletin` int NOT NULL AUTO_INCREMENT,
-  `id_adherent` int NOT NULL,
-  `numero_bordereau` int NOT NULL,
-  `numero_bulletin` int NOT NULL,
+CREATE TABLE `bulletin_soin` (
+  `id_bulletin` int(11) NOT NULL,
+  `id_adherent` int(11) NOT NULL,
+  `numero_bordereau` int(11) NOT NULL,
+  `numero_bulletin` int(11) NOT NULL,
   `date_soin` date DEFAULT NULL,
   `montant_depense` decimal(10,2) DEFAULT NULL,
   `type_soin` varchar(100) DEFAULT NULL,
   `description` varchar(255) DEFAULT NULL,
-  `etat` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`id_bulletin`),
-  UNIQUE KEY `id_adherent` (`id_adherent`) USING BTREE
+  `etat` varchar(50) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -245,18 +237,15 @@ CREATE TABLE IF NOT EXISTS `bulletin_soin` (
 -- Structure de la table `sous_adherent`
 --
 
-DROP TABLE IF EXISTS `sous_adherent`;
-CREATE TABLE IF NOT EXISTS `sous_adherent` (
-  `id_sous_adherent` int NOT NULL AUTO_INCREMENT,
-  `id_adherent` int NOT NULL,
+CREATE TABLE `sous_adherent` (
+  `id_sous_adherent` int(11) NOT NULL,
+  `id_adherent` int(11) NOT NULL,
   `nom` varchar(100) NOT NULL,
   `prenom` varchar(100) NOT NULL,
   `date_naissance` date DEFAULT NULL,
   `sexe` varchar(20) DEFAULT NULL,
-  `lien_parente` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id_sous_adherent`),
-  KEY `id_adherent` (`id_adherent`)
-) ENGINE=InnoDB AUTO_INCREMENT=189 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `lien_parente` varchar(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Déchargement des données de la table `sous_adherent`
@@ -452,6 +441,89 @@ INSERT INTO `sous_adherent` (`id_sous_adherent`, `id_adherent`, `nom`, `prenom`,
 (187, 148, 'ALGHABI', 'ZINA', '1996-06-24', 'F', 'Conjoint'),
 (188, 148, 'BEN HADJ ALI', 'CHAHD', '2023-08-16', 'F', 'Enfant');
 
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `user`
+--
+
+CREATE TABLE `user` (
+  `id` int(11) NOT NULL,
+  `email` varchar(60) NOT NULL,
+  `mot_de_passe` int(250) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Index pour les tables déchargées
+--
+
+--
+-- Index pour la table `adherent`
+--
+ALTER TABLE `adherent`
+  ADD PRIMARY KEY (`id_adherent`);
+
+--
+-- Index pour la table `bordereau`
+--
+ALTER TABLE `bordereau`
+  ADD PRIMARY KEY (`id_bordereau`),
+  ADD UNIQUE KEY `id_bulletin` (`id_bulletin`);
+
+--
+-- Index pour la table `bulletin_soin`
+--
+ALTER TABLE `bulletin_soin`
+  ADD PRIMARY KEY (`id_bulletin`),
+  ADD UNIQUE KEY `id_adherent` (`id_adherent`) USING BTREE;
+
+--
+-- Index pour la table `sous_adherent`
+--
+ALTER TABLE `sous_adherent`
+  ADD PRIMARY KEY (`id_sous_adherent`),
+  ADD KEY `id_adherent` (`id_adherent`);
+
+--
+-- Index pour la table `user`
+--
+ALTER TABLE `user`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- AUTO_INCREMENT pour les tables déchargées
+--
+
+--
+-- AUTO_INCREMENT pour la table `adherent`
+--
+ALTER TABLE `adherent`
+  MODIFY `id_adherent` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=149;
+
+--
+-- AUTO_INCREMENT pour la table `bordereau`
+--
+ALTER TABLE `bordereau`
+  MODIFY `id_bordereau` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT pour la table `bulletin_soin`
+--
+ALTER TABLE `bulletin_soin`
+  MODIFY `id_bulletin` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT pour la table `sous_adherent`
+--
+ALTER TABLE `sous_adherent`
+  MODIFY `id_sous_adherent` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=189;
+
+--
+-- AUTO_INCREMENT pour la table `user`
+--
+ALTER TABLE `user`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
 --
 -- Contraintes pour les tables déchargées
 --
@@ -461,6 +533,12 @@ INSERT INTO `sous_adherent` (`id_sous_adherent`, `id_adherent`, `nom`, `prenom`,
 --
 ALTER TABLE `bordereau`
   ADD CONSTRAINT `bordereau_ibfk_1` FOREIGN KEY (`id_bulletin`) REFERENCES `bulletin_soin` (`id_bulletin`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
+-- Contraintes pour la table `bulletin_soin`
+--
+ALTER TABLE `bulletin_soin`
+  ADD CONSTRAINT `bulletin_soin_ibfk_1` FOREIGN KEY (`id_adherent`) REFERENCES `adherent` (`id_adherent`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Contraintes pour la table `sous_adherent`
