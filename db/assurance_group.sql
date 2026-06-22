@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1
--- Généré le : lun. 22 juin 2026 à 09:55
+-- Généré le : lun. 22 juin 2026 à 14:14
 -- Version du serveur : 10.4.32-MariaDB
 -- Version de PHP : 8.0.30
 
@@ -450,8 +450,15 @@ INSERT INTO `sous_adherent` (`id_sous_adherent`, `id_adherent`, `nom`, `prenom`,
 CREATE TABLE `user` (
   `id` int(11) NOT NULL,
   `email` varchar(60) NOT NULL,
-  `mot_de_passe` int(250) NOT NULL
+  `mot_de_passe` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Déchargement des données de la table `user`
+--
+
+INSERT INTO `user` (`id`, `email`, `mot_de_passe`) VALUES
+(1, 'admin@stipe.tn', '$2y$10$uFgjAeCp6ImCwLFBAXki/.OrsEkfgR3MWu6mes2lfFWLhvbU41FT.');
 
 --
 -- Index pour les tables déchargées
@@ -522,7 +529,7 @@ ALTER TABLE `sous_adherent`
 -- AUTO_INCREMENT pour la table `user`
 --
 ALTER TABLE `user`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- Contraintes pour les tables déchargées
