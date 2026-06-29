@@ -11,9 +11,6 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    /**
-     * Connexion de l'administrateur. Renvoie un token Sanctum.
-     */
     public function login(Request $request): JsonResponse
     {
         $credentials = $request->validate([
@@ -42,9 +39,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Déconnexion : révoque le token courant.
-     */
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
@@ -55,9 +49,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Retourne l'utilisateur authentifié.
-     */
     public function me(Request $request): JsonResponse
     {
         return response()->json([

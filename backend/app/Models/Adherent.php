@@ -2,53 +2,29 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Adherent extends Model
 {
-    use HasFactory;
-
     protected $table = 'adherent';
-
     protected $primaryKey = 'id_adherent';
-
     public $timestamps = false;
 
     protected $fillable = [
-        'matricule',
-        'nom',
-        'prenom',
-        'etat_civil',
-        'sexe',
-        'date_naissance',
-        'date_adhesion',
-        'adresse',
-        'cin',
-        'telephone',
-        'identifiant',
-        'mot_de_passe',
-        'statut',
+        'matricule', 'nom', 'prenom', 'etat_civil', 'sexe',
+        'date_naissance', 'date_adhesion', 'adresse', 'cin',
+        'telephone', 'identifiant', 'mot_de_passe', 'statut',
     ];
 
-    protected $hidden = [
-        'mot_de_passe',
-    ];
-
-    protected $casts = [
-        'matricule' => 'integer',
-        'cin' => 'integer',
-        'date_naissance' => 'date:Y-m-d',
-        'date_adhesion' => 'date:Y-m-d',
-    ];
+    protected $hidden = ['mot_de_passe'];
 
     public function sousAdherents(): HasMany
     {
         return $this->hasMany(SousAdherent::class, 'id_adherent', 'id_adherent');
     }
 
-    public function bulletins(): HasMany
+    public function bulletinsSoin(): HasMany
     {
         return $this->hasMany(BulletinSoin::class, 'id_adherent', 'id_adherent');
     }

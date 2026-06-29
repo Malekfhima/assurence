@@ -13,17 +13,34 @@ class BulletinSoinRequest extends FormRequest
 
     public function rules(): array
     {
-        $required = $this->isMethod('post') ? 'required' : 'sometimes';
+        $id = $this->route('bulletin');
+        $adherentId = $this->input('id_adherent');
 
+        $rules = [
+            'id_adherent' => 'required|integer|exists:adherent,id_adherent',
+            'numero_bulletin' => 'required|integer',
+            'date_soin' => 'nullable|date',
+            'montant_depense' => 'nullable|numeric|min:0',
+            'type_soin' => 'nullable|string|max:100',
+            'description' => 'nullable|string|max:255',
+            'etat' => 'nullable|string|max:50|in:En attente,Validé,Rejeté',
+        ];
+
+        // Unicité : un adhérent ne peut avoir qu'un seul bulletin
+        if ($adherentId && $this->isMethod('post')) {
+            $rules['id_adherent'] = 'required|integer|exists:adherent,id_adherent|unique:bulletin_soin,id_adherent';
+        }
+
+        return $rules;
+    }
+
+    public function messages(): array
+    {
         return [
-            'id_adherent' => [$required, 'integer', 'exists:adherent,id_adherent'],
-            'numero_bordereau' => [$required, 'integer'],
-            'numero_bulletin' => [$required, 'integer'],
-            'date_soin' => ['nullable', 'date'],
-            'montant_depense' => ['nullable', 'numeric', 'min:0'],
-            'type_soin' => ['nullable', 'string', 'max:100'],
-            'description' => ['nullable', 'string', 'max:255'],
-            'etat' => ['nullable', 'string', 'max:50'],
+            'id_adherent.required' => "L'adhérent est obligatoire.",
+            'id_adherent.unique' => 'Cet adhérent possède déjà un bulletin de soin.',
+            'numero_bulletin.required' => 'Le numéro de bulletin est obligatoire.',
+            'etat.in' => "L'état doit être : En attente, Validé ou Rejeté.",
         ];
     }
 }

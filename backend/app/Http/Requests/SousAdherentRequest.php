@@ -13,15 +13,23 @@ class SousAdherentRequest extends FormRequest
 
     public function rules(): array
     {
-        $required = $this->isMethod('post') ? 'required' : 'sometimes';
-
         return [
-            'id_adherent' => [$required, 'integer', 'exists:adherent,id_adherent'],
-            'nom' => [$required, 'string', 'max:100'],
-            'prenom' => [$required, 'string', 'max:100'],
-            'date_naissance' => ['nullable', 'date'],
-            'sexe' => ['nullable', 'string', 'max:20'],
-            'lien_parente' => ['nullable', 'string', 'max:100'],
+            'id_adherent' => 'required|integer|exists:adherent,id_adherent',
+            'nom' => 'required|string|max:100',
+            'prenom' => 'required|string|max:100',
+            'date_naissance' => 'nullable|date',
+            'sexe' => 'nullable|string|max:20',
+            'lien_parente' => 'nullable|string|max:100',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'id_adherent.required' => "L'adhérent est obligatoire.",
+            'id_adherent.exists' => "L'adhérent spécifié n'existe pas.",
+            'nom.required' => 'Le nom est obligatoire.',
+            'prenom.required' => 'Le prénom est obligatoire.',
         ];
     }
 }

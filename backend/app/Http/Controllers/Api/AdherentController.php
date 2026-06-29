@@ -7,82 +7,99 @@ use App\Http\Requests\AdherentRequest;
 use App\Models\Adherent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 
 class AdherentController extends Controller
 {
-    /**
-     * Liste paginée des adhérents avec recherche.
-     */
     public function index(Request $request): JsonResponse
     {
-        $query = Adherent::query()->withCount('sousAdherents');
+        $query = Adherent::with('sousAdherents');
 
-        if ($search = $request->query('search')) {
+        if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('nom', 'like', "%{$search}%")
-                    ->orWhere('prenom', 'like', "%{$search}%")
-                    ->orWhere('matricule', 'like', "%{$search}%")
-                    ->orWhere('cin', 'like', "%{$search}%");
+                  ->orWhere('prenom', 'like', "%{$search}%")
+                  ->orWhere('matricule', 'like', "%{$search}%")
+                  ->orWhere('cin', 'like', "%{$search}%");
             });
         }
 
-        if ($statut = $request->query('statut')) {
+        if ($statut = $request->get('statut')) {
             $query->where('statut', $statut);
         }
 
-        $adherents = $query->orderBy('nom')
-            ->paginate($request->integer('per_page', 15));
+        $adherents = $query->orderBy('nom')->paginate($request->get('per_page', 20));
 
-        return response()->json($adherents);
+        return response()->json([
+            'success' => true,
+            'data' => $adherents->items(),
+            'meta' => [
+                'current_page' => $adherents->currentPage(),
+                'last_page' => $adherents->lastPage(),
+                'total' => $adherents->total(),
+                'per_page' => $adherents->perPage(),
+            ],
+        ]);
     }
 
     public function store(AdherentRequest $request): JsonResponse
     {
-        $data = $request->validated();
-
-        if ($request->filled('mot_de_passe')) {
-            $data['mot_de_passe'] = Hash::make($request->input('mot_de_passe'));
-        }
-
-        $adherent = Adherent::create($data);
+        $adherent = Adherent::create($request->validated());
 
         return response()->json([
             'success' => true,
             'message' => 'Adhérent créé avec succès.',
-            'data' => $adherent,
+            'data' => $adherent->load('sousAdherents'),
         ], 201);
     }
 
-    public function show(Adherent $adherent): JsonResponse
+    public function show(int $id): JsonResponse
     {
-        $adherent->load(['sousAdherents', 'bulletins']);
+        $adherent = Adherent::with('sousAdherents')->find($id);
 
-        return response()->json([
-            'success' => true,
-            'data' => $adherent,
-        ]);
-    }
-
-    public function update(AdherentRequest $request, Adherent $adherent): JsonResponse
-    {
-        $data = $request->validated();
-
-        if ($request->filled('mot_de_passe')) {
-            $data['mot_de_passe'] = Hash::make($request->input('mot_de_passe'));
+        if (!$adherent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Adhérent introuvable.',
+            ], 404);
         }
 
-        $adherent->update($data);
-
         return response()->json([
             'success' => true,
-            'message' => 'Adhérent mis à jour avec succès.',
             'data' => $adherent,
         ]);
     }
 
-    public function destroy(Adherent $adherent): JsonResponse
+    public function update(AdherentRequest $request, int $id): JsonResponse
     {
+        $adherent = Adherent::find($id);
+
+        if (!$adherent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Adhérent introuvable.',
+            ], 404);
+        }
+
+        $adherent->update($request->validated());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Adhérent modifié avec succès.',
+            'data' => $adherent->load('sousAdherents'),
+        ]);
+    }
+
+    public function destroy(int $id): JsonResponse
+    {
+        $adherent = Adherent::find($id);
+
+        if (!$adherent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Adhérent introuvable.',
+            ], 404);
+        }
+
         $adherent->delete();
 
         return response()->json([

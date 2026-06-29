@@ -13,21 +13,30 @@ class AdherentRequest extends FormRequest
 
     public function rules(): array
     {
-        $required = $this->isMethod('post') ? 'required' : 'sometimes';
+        $id = $this->route('adherent');
 
         return [
-            'matricule' => [$required, 'integer'],
-            'nom' => [$required, 'string', 'max:100'],
-            'prenom' => [$required, 'string', 'max:100'],
-            'etat_civil' => ['nullable', 'string', 'max:50'],
-            'sexe' => ['nullable', 'string', 'max:20'],
-            'date_naissance' => ['nullable', 'date'],
-            'date_adhesion' => ['nullable', 'date'],
-            'adresse' => ['nullable', 'string', 'max:255'],
-            'cin' => ['nullable', 'integer'],
-            'telephone' => ['nullable', 'string', 'max:20'],
-            'identifiant' => ['nullable', 'string', 'max:100'],
-            'statut' => ['nullable', 'string', 'max:100'],
+            'matricule' => 'required|integer|unique:adherent,matricule,' . $id . ',id_adherent',
+            'nom' => 'required|string|max:100',
+            'prenom' => 'required|string|max:100',
+            'etat_civil' => 'nullable|string|max:50',
+            'sexe' => 'nullable|string|max:20',
+            'date_naissance' => 'nullable|date',
+            'date_adhesion' => 'nullable|date',
+            'adresse' => 'nullable|string|max:255',
+            'cin' => 'nullable|integer',
+            'telephone' => 'nullable|string|max:20',
+            'statut' => 'nullable|string|max:100',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'matricule.required' => 'Le matricule est obligatoire.',
+            'matricule.unique' => 'Ce matricule existe déjà.',
+            'nom.required' => 'Le nom est obligatoire.',
+            'prenom.required' => 'Le prénom est obligatoire.',
         ];
     }
 }

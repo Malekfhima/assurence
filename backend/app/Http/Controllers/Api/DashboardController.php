@@ -6,24 +6,36 @@ use App\Http\Controllers\Controller;
 use App\Models\Adherent;
 use App\Models\Bordereau;
 use App\Models\BulletinSoin;
+use App\Models\SousAdherent;
 use Illuminate\Http\JsonResponse;
 
 class DashboardController extends Controller
 {
-    /**
-     * Statistiques affichées sur le tableau de bord.
-     */
     public function stats(): JsonResponse
     {
+        $totalAdherents = Adherent::count();
+        $totalSousAdherents = SousAdherent::count();
+        $totalBulletins = BulletinSoin::count();
+        $totalBordereaux = Bordereau::count();
+
+        $bulletinsEnAttente = BulletinSoin::where('etat', 'En attente')->count();
+        $bulletinsValides = BulletinSoin::where('etat', 'Validé')->count();
+        $bulletinsRejetes = BulletinSoin::where('etat', 'Rejeté')->count();
+
+        $montantTotal = BulletinSoin::where('etat', 'Validé')
+                                     ->sum('montant_depense');
+
         return response()->json([
             'success' => true,
             'data' => [
-                'total_adherents' => Adherent::count(),
-                'bulletins_traites' => BulletinSoin::where('etat', 'Traité')->count(),
-                'total_bulletins' => BulletinSoin::count(),
-                'total_bordereaux' => Bordereau::count(),
-                'montant_total_rembourse' => (float) BulletinSoin::where('etat', 'Traité')
-                    ->sum('montant_depense'),
+                'total_adherents' => $totalAdherents,
+                'total_sous_adherents' => $totalSousAdherents,
+                'total_bulletins' => $totalBulletins,
+                'total_bordereaux' => $totalBordereaux,
+                'bulletins_en_attente' => $bulletinsEnAttente,
+                'bulletins_valides' => $bulletinsValides,
+                'bulletins_rejetes' => $bulletinsRejetes,
+                'montant_total_rembourse' => number_format($montantTotal, 2, '.', ''),
             ],
         ]);
     }

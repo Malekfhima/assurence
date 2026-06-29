@@ -14,18 +14,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 $DB_HOST = '127.0.0.1';
+$DB_PORT = '3308';
 $DB_NAME = 'assurance_group';
 $DB_USER = 'root';
 $DB_PASS = '';
 
 function getPdo()
 {
-    global $DB_HOST, $DB_NAME, $DB_USER, $DB_PASS;
+    global $DB_HOST, $DB_PORT, $DB_NAME, $DB_USER, $DB_PASS;
     static $pdo = null;
     if ($pdo === null) {
         try {
             $pdo = new PDO(
-                "mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4",
+                "mysql:host=$DB_HOST;port=$DB_PORT;dbname=$DB_NAME;charset=utf8mb4",
                 $DB_USER,
                 $DB_PASS,
                 [

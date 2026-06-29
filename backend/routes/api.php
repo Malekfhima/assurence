@@ -11,25 +11,41 @@ use Illuminate\Support\Facades\Route;
 // --- Authentification ---
 Route::post('/login', [AuthController::class, 'login']);
 
+// --- Routes protégées par Sanctum ---
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 
-    // --- Tableau de bord ---
+    // --- Dashboard ---
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
 
-    // --- Ressources CRUD ---
-    // Le binding {adherent} etc. correspond aux clés personnalisées définies
-    // dans les modèles (id_adherent, id_bulletin, ...).
-    Route::apiResource('adherents', AdherentController::class)
-        ->parameters(['adherents' => 'adherent']);
+    // --- CRUD Adhérents ---
+    Route::get('/adherents', [AdherentController::class, 'index']);
+    Route::post('/adherents', [AdherentController::class, 'store']);
+    Route::get('/adherents/{id}', [AdherentController::class, 'show']);
+    Route::put('/adherents/{id}', [AdherentController::class, 'update']);
+    Route::delete('/adherents/{id}', [AdherentController::class, 'destroy']);
 
-    Route::apiResource('sous-adherents', SousAdherentController::class)
-        ->parameters(['sous-adherents' => 'sousAdherent']);
+    // --- CRUD Sous-adhérents ---
+    Route::get('/sous-adherents', [SousAdherentController::class, 'index']);
+    Route::post('/sous-adherents', [SousAdherentController::class, 'store']);
+    Route::get('/sous-adherents/{id}', [SousAdherentController::class, 'show']);
+    Route::put('/sous-adherents/{id}', [SousAdherentController::class, 'update']);
+    Route::delete('/sous-adherents/{id}', [SousAdherentController::class, 'destroy']);
 
-    Route::apiResource('bulletins', BulletinSoinController::class)
-        ->parameters(['bulletins' => 'bulletin']);
+    // --- CRUD Bulletins de soin ---
+    Route::get('/bulletins', [BulletinSoinController::class, 'index']);
+    Route::post('/bulletins', [BulletinSoinController::class, 'store']);
+    Route::get('/bulletins/{id}', [BulletinSoinController::class, 'show']);
+    Route::put('/bulletins/{id}', [BulletinSoinController::class, 'update']);
+    Route::delete('/bulletins/{id}', [BulletinSoinController::class, 'destroy']);
+    Route::post('/bulletins/{id}/valider', [BulletinSoinController::class, 'valider']);
+    Route::post('/bulletins/{id}/rejeter', [BulletinSoinController::class, 'rejeter']);
 
-    Route::apiResource('bordereaux', BordereauController::class)
-        ->parameters(['bordereaux' => 'bordereau']);
+    // --- CRUD Bordereaux ---
+    Route::get('/bordereaux', [BordereauController::class, 'index']);
+    Route::post('/bordereaux', [BordereauController::class, 'store']);
+    Route::get('/bordereaux/{id}', [BordereauController::class, 'show']);
+    Route::put('/bordereaux/{id}', [BordereauController::class, 'update']);
+    Route::delete('/bordereaux/{id}', [BordereauController::class, 'destroy']);
 });

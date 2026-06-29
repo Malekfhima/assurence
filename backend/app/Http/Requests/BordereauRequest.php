@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class BordereauRequest extends FormRequest
 {
@@ -14,21 +13,27 @@ class BordereauRequest extends FormRequest
 
     public function rules(): array
     {
-        $id = $this->route('bordereau')?->id_bordereau;
+        $rules = [
+            'id_bulletin' => 'required|integer|exists:bulletin_soin,id_bulletin',
+            'numero_bordereau' => 'required|integer',
+            'date_envoi' => 'nullable|date',
+            'statut' => 'nullable|string|max:50',
+            'commentaire' => 'nullable|string|max:255',
+        ];
 
-        $required = $this->isMethod('post') ? 'required' : 'sometimes';
+        if ($this->isMethod('post')) {
+            $rules['id_bulletin'] = 'required|integer|exists:bulletin_soin,id_bulletin|unique:bordereau,id_bulletin';
+        }
 
+        return $rules;
+    }
+
+    public function messages(): array
+    {
         return [
-            'id_bulletin' => [
-                $required,
-                'integer',
-                'exists:bulletin_soin,id_bulletin',
-                Rule::unique('bordereau', 'id_bulletin')->ignore($id, 'id_bordereau'),
-            ],
-            'numero_bordereau' => [$required, 'integer'],
-            'date_envoi' => ['nullable', 'date'],
-            'statut' => ['nullable', 'string', 'max:50'],
-            'commentaire' => ['nullable', 'string', 'max:255'],
+            'id_bulletin.required' => 'Le bulletin est obligatoire.',
+            'id_bulletin.unique' => 'Ce bulletin est déjà associé à un bordereau.',
+            'numero_bordereau.required' => 'Le numéro de bordereau est obligatoire.',
         ];
     }
 }
