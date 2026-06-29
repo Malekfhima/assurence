@@ -458,7 +458,7 @@ CREATE TABLE `user` (
 --
 
 INSERT INTO `user` (`id`, `email`, `mot_de_passe`) VALUES
-(1, 'admin@stipe.tn', '$2y$10$uFgjAeCp6ImCwLFBAXki/.OrsEkfgR3MWu6mes2lfFWLhvbU41FT.');
+(1, 'admin@stip.tn', '$2y$10$uFgjAeCp6ImCwLFBAXki/.OrsEkfgR3MWu6mes2lfFWLhvbU41FT.');
 
 --
 -- Index pour les tables déchargées
