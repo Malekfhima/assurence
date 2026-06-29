@@ -19,14 +19,14 @@ class AdherentRequest extends FormRequest
             'matricule' => 'required|integer|unique:adherent,matricule,' . $id . ',id_adherent',
             'nom' => 'required|string|max:100',
             'prenom' => 'required|string|max:100',
-            'etat_civil' => 'nullable|string|max:50',
-            'sexe' => 'nullable|string|max:20',
-            'date_naissance' => 'nullable|date',
-            'date_adhesion' => 'nullable|date',
-            'adresse' => 'nullable|string|max:255',
-            'cin' => 'nullable|integer',
-            'telephone' => 'nullable|string|max:20',
-            'statut' => 'nullable|string|max:100',
+            'etat_civil' => 'required|string|max:50',
+            'sexe' => 'required|string|max:20',
+            'date_naissance' => 'required|date',
+            'date_adhesion' => 'required|date',
+            'adresse' => 'required|string|max:500',
+            'cin' => 'required|numeric',
+            'telephone' => 'required|string|max:30',
+            'statut' => 'required|string|max:100',
         ];
     }
 
@@ -37,6 +37,14 @@ class AdherentRequest extends FormRequest
             'matricule.unique' => 'Ce matricule existe déjà.',
             'nom.required' => 'Le nom est obligatoire.',
             'prenom.required' => 'Le prénom est obligatoire.',
+            'etat_civil.required' => 'L\'état civil est obligatoire.',
+            'sexe.required' => 'Le sexe est obligatoire.',
+            'date_naissance.required' => 'La date de naissance est obligatoire.',
+            'date_adhesion.required' => 'La date d\'adhésion est obligatoire.',
+            'adresse.required' => 'L\'adresse est obligatoire.',
+            'cin.required' => 'Le CIN est obligatoire.',
+            'telephone.required' => 'Le téléphone est obligatoire.',
+            'statut.required' => 'Le statut est obligatoire.',
         ];
     }
 }

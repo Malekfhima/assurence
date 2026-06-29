@@ -7,7 +7,6 @@ import Adherents from './pages/Adherents';
 import AdherentDetails from './pages/AdherentDetails';
 import Bulletins from './pages/Bulletins';
 import Bordereaux from './pages/Bordereaux';
-import Statistiques from './pages/Statistiques';
 import Parametres from './pages/Parametres';
 
 const ProtectedRoute = ({ children }) => {
@@ -35,7 +34,6 @@ export default function App() {
           <Route path="/adherents/:id" element={<AdherentDetails />} />
           <Route path="/bulletins" element={<Bulletins />} />
           <Route path="/bordereaux" element={<Bordereaux />} />
-          <Route path="/statistiques" element={<Statistiques />} />
           <Route path="/parametres" element={<Parametres />} />
         </Route>
 

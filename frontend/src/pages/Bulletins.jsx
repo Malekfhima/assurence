@@ -140,7 +140,7 @@ export default function Bulletins() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bulletin</label>
-              <input type="number" value={form.numero_bulletin} onChange={(e) => setForm({...form, numero_bulletin: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.numero_bulletin} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setForm({...form, numero_bulletin: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Date soin</label>
@@ -148,7 +148,7 @@ export default function Bulletins() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Montant</label>
-              <input type="number" step="0.01" value={form.montant_depense} onChange={(e) => setForm({...form, montant_depense: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <input type="text" inputMode="decimal" value={form.montant_depense} onChange={(e) => { let val = e.target.value.replace(/[^0-9.,]/g, ''); val = val.replace(',', '.'); setForm({...form, montant_depense: val}); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Type de soin</label>

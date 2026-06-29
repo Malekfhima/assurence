@@ -11,6 +11,7 @@ export default function Adherents() {
   const [modal, setModal] = useState(null); // null | 'add' | 'edit' | 'view'
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({ matricule: '', nom: '', prenom: '', etat_civil: '', sexe: '', date_naissance: '', date_adhesion: '', adresse: '', cin: '', telephone: '', statut: 'Actif' });
+  const [errors, setErrors] = useState({});
   const [notification, setNotification] = useState(null);
 
   const showNotif = (msg, type = 'success') => {
@@ -52,11 +53,25 @@ export default function Adherents() {
       setSelected(null);
       setForm({ matricule: '', nom: '', prenom: '', etat_civil: '', sexe: '', date_naissance: '', date_adhesion: '', adresse: '', cin: '', telephone: '', statut: 'Actif' });
     }
+    setErrors({});
     setModal(type);
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    const required = ['matricule', 'nom', 'prenom', 'etat_civil', 'sexe', 'date_naissance', 'date_adhesion', 'adresse', 'cin', 'telephone', 'statut'];
+    required.forEach(field => {
+      if (!form[field] || (typeof form[field] === 'string' && !form[field].trim())) {
+        newErrors[field] = 'Ce champ est obligatoire.';
+      }
+    });
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
     try {
       if (modal === 'add') {
         await api.post('/adherents', form);
@@ -68,7 +83,16 @@ export default function Adherents() {
       setModal(null);
       fetchAdherents(meta.current_page);
     } catch (err) {
-      showNotif(err.response?.data?.message || 'Erreur lors de la sauvegarde.', 'error');
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors) {
+        const fieldErrors = {};
+        Object.keys(serverErrors).forEach(field => {
+          fieldErrors[field] = serverErrors[field][0];
+        });
+        setErrors(fieldErrors);
+      } else {
+        showNotif(err.response?.data?.message || 'Erreur lors de la sauvegarde.', 'error');
+      }
     }
   };
 
@@ -93,61 +117,72 @@ export default function Adherents() {
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Matricule</label>
-              <input type="number" value={form.matricule} onChange={(e) => setForm({...form, matricule: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Matricule <span className="text-red-500">*</span></label>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.matricule} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setForm({...form, matricule: val}); setErrors({...errors, matricule: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.matricule ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.matricule && <p className="text-xs text-red-500 mt-1">{errors.matricule}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">CIN</label>
-              <input type="number" value={form.cin} onChange={(e) => setForm({...form, cin: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">CIN <span className="text-red-500">*</span></label>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.cin} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setForm({...form, cin: val}); setErrors({...errors, cin: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.cin ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.cin && <p className="text-xs text-red-500 mt-1">{errors.cin}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
-              <input type="text" value={form.nom} onChange={(e) => setForm({...form, nom: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Nom <span className="text-red-500">*</span></label>
+              <input type="text" value={form.nom} onChange={(e) => { setForm({...form, nom: e.target.value}); setErrors({...errors, nom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.nom ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.nom && <p className="text-xs text-red-500 mt-1">{errors.nom}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Prénom</label>
-              <input type="text" value={form.prenom} onChange={(e) => setForm({...form, prenom: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Prénom <span className="text-red-500">*</span></label>
+              <input type="text" value={form.prenom} onChange={(e) => { setForm({...form, prenom: e.target.value}); setErrors({...errors, prenom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.prenom ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.prenom && <p className="text-xs text-red-500 mt-1">{errors.prenom}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">État civil</label>
-              <select value={form.etat_civil} onChange={(e) => setForm({...form, etat_civil: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+              <label className="block text-xs font-medium text-gray-700 mb-1">État civil <span className="text-red-500">*</span></label>
+              <select value={form.etat_civil} onChange={(e) => { setForm({...form, etat_civil: e.target.value}); setErrors({...errors, etat_civil: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.etat_civil ? 'border-red-400' : 'border-gray-300'}`}>
                 <option value="">Sélectionner</option>
                 <option value="C">Célibataire</option>
                 <option value="M">Marié(e)</option>
               </select>
+              {errors.etat_civil && <p className="text-xs text-red-500 mt-1">{errors.etat_civil}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Sexe</label>
-              <select value={form.sexe} onChange={(e) => setForm({...form, sexe: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Sexe <span className="text-red-500">*</span></label>
+              <select value={form.sexe} onChange={(e) => { setForm({...form, sexe: e.target.value}); setErrors({...errors, sexe: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.sexe ? 'border-red-400' : 'border-gray-300'}`}>
                 <option value="">Sélectionner</option>
                 <option value="H">Homme</option>
                 <option value="F">Femme</option>
               </select>
+              {errors.sexe && <p className="text-xs text-red-500 mt-1">{errors.sexe}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Date naissance</label>
-              <input type="date" value={form.date_naissance} onChange={(e) => setForm({...form, date_naissance: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date naissance <span className="text-red-500">*</span></label>
+              <input type="date" value={form.date_naissance} onChange={(e) => { setForm({...form, date_naissance: e.target.value}); setErrors({...errors, date_naissance: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.date_naissance ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.date_naissance && <p className="text-xs text-red-500 mt-1">{errors.date_naissance}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Date adhésion</label>
-              <input type="date" value={form.date_adhesion} onChange={(e) => setForm({...form, date_adhesion: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date adhésion <span className="text-red-500">*</span></label>
+              <input type="date" value={form.date_adhesion} onChange={(e) => { setForm({...form, date_adhesion: e.target.value}); setErrors({...errors, date_adhesion: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.date_adhesion ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.date_adhesion && <p className="text-xs text-red-500 mt-1">{errors.date_adhesion}</p>}
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Adresse</label>
-            <input type="text" value={form.adresse} onChange={(e) => setForm({...form, adresse: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            <label className="block text-xs font-medium text-gray-700 mb-1">Adresse <span className="text-red-500">*</span></label>
+            <input type="text" value={form.adresse} onChange={(e) => { setForm({...form, adresse: e.target.value}); setErrors({...errors, adresse: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.adresse ? 'border-red-400' : 'border-gray-300'}`} />
+            {errors.adresse && <p className="text-xs text-red-500 mt-1">{errors.adresse}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone</label>
-              <input type="text" value={form.telephone} onChange={(e) => setForm({...form, telephone: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone <span className="text-red-500">*</span></label>
+              <input type="text" value={form.telephone} onChange={(e) => { setForm({...form, telephone: e.target.value}); setErrors({...errors, telephone: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.telephone ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.telephone && <p className="text-xs text-red-500 mt-1">{errors.telephone}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Statut</label>
-              <select value={form.statut} onChange={(e) => setForm({...form, statut: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Statut <span className="text-red-500">*</span></label>
+              <select value={form.statut} onChange={(e) => { setForm({...form, statut: e.target.value}); setErrors({...errors, statut: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.statut ? 'border-red-400' : 'border-gray-300'}`}>
                 <option value="Actif">Actif</option>
                 <option value="Inactif">Inactif</option>
               </select>
+              {errors.statut && <p className="text-xs text-red-500 mt-1">{errors.statut}</p>}
             </div>
           </div>
           <div className="pt-2 flex justify-end gap-3">

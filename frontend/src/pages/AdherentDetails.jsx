@@ -76,7 +76,9 @@ export default function AdherentDetails() {
 
   // Forms
   const [infoForm, setInfoForm] = useState({});
+  const [infoErrors, setInfoErrors] = useState({});
   const [sousForm, setSousForm] = useState({ nom: '', prenom: '', date_naissance: '', sexe: '', lien_parente: '' });
+  const [sousErrors, setSousErrors] = useState({});
   const [bulletinForm, setBulletinForm] = useState({ numero_bulletin: '', date_soin: '', montant_depense: '', type_soin: '', description: '', etat: 'En attente' });
   const [bordereauForm, setBordereauForm] = useState({ id_bulletin: '', numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
   const [rejetMotif, setRejetMotif] = useState('');
@@ -116,14 +118,29 @@ export default function AdherentDetails() {
 
   useEffect(() => { fetchAll(); }, [id]);
 
+  const validateInfoForm = () => {
+    const newErrors = {};
+    const required = ['matricule', 'nom', 'prenom', 'etat_civil', 'sexe', 'date_naissance', 'date_adhesion', 'adresse', 'cin', 'telephone', 'statut'];
+    required.forEach(field => {
+      const val = infoForm[field];
+      if (val === undefined || val === null || (typeof val === 'string' && !val.trim())) {
+        newErrors[field] = 'Ce champ est obligatoire.';
+      }
+    });
+    setInfoErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   // --- Edit Adherent Info ---
   const openEditInfo = () => {
     setInfoForm({ ...adherent });
+    setInfoErrors({});
     setEditInfoModal(true);
   };
 
   const handleEditInfo = async (e) => {
     e.preventDefault();
+    if (!validateInfoForm()) return;
     try {
       const res = await api.put(`/adherents/${id}`, infoForm);
       if (res.data.success) {
@@ -132,7 +149,16 @@ export default function AdherentDetails() {
         setEditInfoModal(false);
       }
     } catch (err) {
-      showNotif(err.response?.data?.message || 'Erreur lors de la modification.', 'error');
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors) {
+        const fieldErrors = {};
+        Object.keys(serverErrors).forEach(field => {
+          fieldErrors[field] = serverErrors[field][0];
+        });
+        setInfoErrors(fieldErrors);
+      } else {
+        showNotif(err.response?.data?.message || 'Erreur lors de la modification.', 'error');
+      }
     }
   };
 
@@ -148,6 +174,19 @@ export default function AdherentDetails() {
   };
 
   // --- Sous-adhérents CRUD ---
+  const validateSousForm = () => {
+    const newErrors = {};
+    const required = ['nom', 'prenom', 'date_naissance', 'sexe', 'lien_parente'];
+    required.forEach(field => {
+      const val = sousForm[field];
+      if (val === undefined || val === null || (typeof val === 'string' && !val.trim())) {
+        newErrors[field] = 'Ce champ est obligatoire.';
+      }
+    });
+    setSousErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const openSousModal = (type, sous = null) => {
     if (type === 'edit' && sous) {
       setSousSelected(sous);
@@ -156,11 +195,13 @@ export default function AdherentDetails() {
       setSousSelected(null);
       setSousForm({ nom: '', prenom: '', date_naissance: '', sexe: '', lien_parente: '' });
     }
+    setSousErrors({});
     setSousModal(type);
   };
 
   const handleSousSubmit = async (e) => {
     e.preventDefault();
+    if (!validateSousForm()) return;
     try {
       const data = { ...sousForm, id_adherent: parseInt(id) };
       if (sousModal === 'add') {
@@ -173,7 +214,16 @@ export default function AdherentDetails() {
       setSousModal(null);
       fetchAll();
     } catch (err) {
-      showNotif(err.response?.data?.message || 'Erreur.', 'error');
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors) {
+        const fieldErrors = {};
+        Object.keys(serverErrors).forEach(field => {
+          fieldErrors[field] = serverErrors[field][0];
+        });
+        setSousErrors(fieldErrors);
+      } else {
+        showNotif(err.response?.data?.message || 'Erreur.', 'error');
+      }
     }
   };
 
@@ -616,63 +666,74 @@ export default function AdherentDetails() {
         <form onSubmit={handleEditInfo} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Matricule</label>
-              <input type="number" value={infoForm.matricule || ''} onChange={(e) => setInfoForm({...infoForm, matricule: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Matricule <span className="text-red-500">*</span></label>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={infoForm.matricule || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setInfoForm({...infoForm, matricule: val}); setInfoErrors({...infoErrors, matricule: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.matricule ? 'border-red-400' : 'border-gray-300'}`} />
+              {infoErrors.matricule && <p className="text-xs text-red-500 mt-1">{infoErrors.matricule}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">CIN</label>
-              <input type="number" value={infoForm.cin || ''} onChange={(e) => setInfoForm({...infoForm, cin: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">CIN <span className="text-red-500">*</span></label>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={infoForm.cin || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setInfoForm({...infoForm, cin: val}); setInfoErrors({...infoErrors, cin: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.cin ? 'border-red-400' : 'border-gray-300'}`} />
+              {infoErrors.cin && <p className="text-xs text-red-500 mt-1">{infoErrors.cin}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
-              <input type="text" value={infoForm.nom || ''} onChange={(e) => setInfoForm({...infoForm, nom: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Nom <span className="text-red-500">*</span></label>
+              <input type="text" value={infoForm.nom || ''} onChange={(e) => { setInfoForm({...infoForm, nom: e.target.value}); setInfoErrors({...infoErrors, nom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.nom ? 'border-red-400' : 'border-gray-300'}`} />
+              {infoErrors.nom && <p className="text-xs text-red-500 mt-1">{infoErrors.nom}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Prénom</label>
-              <input type="text" value={infoForm.prenom || ''} onChange={(e) => setInfoForm({...infoForm, prenom: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Prénom <span className="text-red-500">*</span></label>
+              <input type="text" value={infoForm.prenom || ''} onChange={(e) => { setInfoForm({...infoForm, prenom: e.target.value}); setInfoErrors({...infoErrors, prenom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.prenom ? 'border-red-400' : 'border-gray-300'}`} />
+              {infoErrors.prenom && <p className="text-xs text-red-500 mt-1">{infoErrors.prenom}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">État civil</label>
-              <select value={infoForm.etat_civil || ''} onChange={(e) => setInfoForm({...infoForm, etat_civil: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+              <label className="block text-xs font-medium text-gray-700 mb-1">État civil <span className="text-red-500">*</span></label>
+              <select value={infoForm.etat_civil || ''} onChange={(e) => { setInfoForm({...infoForm, etat_civil: e.target.value}); setInfoErrors({...infoErrors, etat_civil: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.etat_civil ? 'border-red-400' : 'border-gray-300'}`}>
                 <option value="">Sélectionner</option>
                 <option value="C">Célibataire</option>
                 <option value="M">Marié(e)</option>
                 <option value="D">Divorcé(e)</option>
                 <option value="V">Veuf(ve)</option>
               </select>
+              {infoErrors.etat_civil && <p className="text-xs text-red-500 mt-1">{infoErrors.etat_civil}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Sexe</label>
-              <select value={infoForm.sexe || ''} onChange={(e) => setInfoForm({...infoForm, sexe: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Sexe <span className="text-red-500">*</span></label>
+              <select value={infoForm.sexe || ''} onChange={(e) => { setInfoForm({...infoForm, sexe: e.target.value}); setInfoErrors({...infoErrors, sexe: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.sexe ? 'border-red-400' : 'border-gray-300'}`}>
                 <option value="">Sélectionner</option>
                 <option value="H">Homme</option>
                 <option value="F">Femme</option>
               </select>
+              {infoErrors.sexe && <p className="text-xs text-red-500 mt-1">{infoErrors.sexe}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Date naissance</label>
-              <input type="date" value={infoForm.date_naissance || ''} onChange={(e) => setInfoForm({...infoForm, date_naissance: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date naissance <span className="text-red-500">*</span></label>
+              <input type="date" value={infoForm.date_naissance || ''} onChange={(e) => { setInfoForm({...infoForm, date_naissance: e.target.value}); setInfoErrors({...infoErrors, date_naissance: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.date_naissance ? 'border-red-400' : 'border-gray-300'}`} />
+              {infoErrors.date_naissance && <p className="text-xs text-red-500 mt-1">{infoErrors.date_naissance}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Date adhésion</label>
-              <input type="date" value={infoForm.date_adhesion || ''} onChange={(e) => setInfoForm({...infoForm, date_adhesion: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date adhésion <span className="text-red-500">*</span></label>
+              <input type="date" value={infoForm.date_adhesion || ''} onChange={(e) => { setInfoForm({...infoForm, date_adhesion: e.target.value}); setInfoErrors({...infoErrors, date_adhesion: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.date_adhesion ? 'border-red-400' : 'border-gray-300'}`} />
+              {infoErrors.date_adhesion && <p className="text-xs text-red-500 mt-1">{infoErrors.date_adhesion}</p>}
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Adresse</label>
-            <input type="text" value={infoForm.adresse || ''} onChange={(e) => setInfoForm({...infoForm, adresse: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            <label className="block text-xs font-medium text-gray-700 mb-1">Adresse <span className="text-red-500">*</span></label>
+            <input type="text" value={infoForm.adresse || ''} onChange={(e) => { setInfoForm({...infoForm, adresse: e.target.value}); setInfoErrors({...infoErrors, adresse: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.adresse ? 'border-red-400' : 'border-gray-300'}`} />
+            {infoErrors.adresse && <p className="text-xs text-red-500 mt-1">{infoErrors.adresse}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone</label>
-              <input type="text" value={infoForm.telephone || ''} onChange={(e) => setInfoForm({...infoForm, telephone: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone <span className="text-red-500">*</span></label>
+              <input type="text" value={infoForm.telephone || ''} onChange={(e) => { setInfoForm({...infoForm, telephone: e.target.value}); setInfoErrors({...infoErrors, telephone: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.telephone ? 'border-red-400' : 'border-gray-300'}`} />
+              {infoErrors.telephone && <p className="text-xs text-red-500 mt-1">{infoErrors.telephone}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Statut</label>
-              <select value={infoForm.statut || 'Actif'} onChange={(e) => setInfoForm({...infoForm, statut: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Statut <span className="text-red-500">*</span></label>
+              <select value={infoForm.statut || 'Actif'} onChange={(e) => { setInfoForm({...infoForm, statut: e.target.value}); setInfoErrors({...infoErrors, statut: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.statut ? 'border-red-400' : 'border-gray-300'}`}>
                 <option value="Actif">Actif</option>
                 <option value="Inactif">Inactif</option>
               </select>
+              {infoErrors.statut && <p className="text-xs text-red-500 mt-1">{infoErrors.statut}</p>}
             </div>
           </div>
           <div className="pt-2 flex justify-end gap-3">
@@ -687,28 +748,37 @@ export default function AdherentDetails() {
         <form onSubmit={handleSousSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Nom</label>
-              <input type="text" value={sousForm.nom || ''} onChange={(e) => setSousForm({...sousForm, nom: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Nom <span className="text-red-500">*</span></label>
+              <input type="text" value={sousForm.nom || ''} onChange={(e) => { setSousForm({...sousForm, nom: e.target.value}); setSousErrors({...sousErrors, nom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${sousErrors.nom ? 'border-red-400' : 'border-gray-300'}`} />
+              {sousErrors.nom && <p className="text-xs text-red-500 mt-1">{sousErrors.nom}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Prénom</label>
-              <input type="text" value={sousForm.prenom || ''} onChange={(e) => setSousForm({...sousForm, prenom: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Prénom <span className="text-red-500">*</span></label>
+              <input type="text" value={sousForm.prenom || ''} onChange={(e) => { setSousForm({...sousForm, prenom: e.target.value}); setSousErrors({...sousErrors, prenom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${sousErrors.prenom ? 'border-red-400' : 'border-gray-300'}`} />
+              {sousErrors.prenom && <p className="text-xs text-red-500 mt-1">{sousErrors.prenom}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Date naissance</label>
-              <input type="date" value={sousForm.date_naissance || ''} onChange={(e) => setSousForm({...sousForm, date_naissance: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date naissance <span className="text-red-500">*</span></label>
+              <input type="date" value={sousForm.date_naissance || ''} onChange={(e) => { setSousForm({...sousForm, date_naissance: e.target.value}); setSousErrors({...sousErrors, date_naissance: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${sousErrors.date_naissance ? 'border-red-400' : 'border-gray-300'}`} />
+              {sousErrors.date_naissance && <p className="text-xs text-red-500 mt-1">{sousErrors.date_naissance}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Sexe</label>
-              <select value={sousForm.sexe || ''} onChange={(e) => setSousForm({...sousForm, sexe: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Sexe <span className="text-red-500">*</span></label>
+              <select value={sousForm.sexe || ''} onChange={(e) => { setSousForm({...sousForm, sexe: e.target.value}); setSousErrors({...sousErrors, sexe: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${sousErrors.sexe ? 'border-red-400' : 'border-gray-300'}`}>
                 <option value="">Sélectionner</option>
                 <option value="H">Homme</option>
                 <option value="F">Femme</option>
               </select>
+              {sousErrors.sexe && <p className="text-xs text-red-500 mt-1">{sousErrors.sexe}</p>}
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Lien de parenté</label>
-              <input type="text" value={sousForm.lien_parente || ''} onChange={(e) => setSousForm({...sousForm, lien_parente: e.target.value})} placeholder="Ex: Fils, Fille, Conjoint..." className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Lien de parenté <span className="text-red-500">*</span></label>
+              <select value={sousForm.lien_parente || ''} onChange={(e) => { setSousForm({...sousForm, lien_parente: e.target.value}); setSousErrors({...sousErrors, lien_parente: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${sousErrors.lien_parente ? 'border-red-400' : 'border-gray-300'}`}>
+                <option value="">Sélectionner...</option>
+                <option value="Conjoint">Conjoint</option>
+                <option value="Enfant">Enfant</option>
+              </select>
+              {sousErrors.lien_parente && <p className="text-xs text-red-500 mt-1">{sousErrors.lien_parente}</p>}
             </div>
           </div>
           <div className="pt-2 flex justify-end gap-3">
@@ -723,16 +793,14 @@ export default function AdherentDetails() {
         <form onSubmit={handleBulletinSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bulletin</label>
-              <input type="number" value={bulletinForm.numero_bulletin || ''} onChange={(e) => setBulletinForm({...bulletinForm, numero_bulletin: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bulletin</label>               <input type="text" inputMode="numeric" pattern="[0-9]*" value={bulletinForm.numero_bulletin || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setBulletinForm({...bulletinForm, numero_bulletin: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Date soin</label>
               <input type="date" value={bulletinForm.date_soin || ''} onChange={(e) => setBulletinForm({...bulletinForm, date_soin: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Montant (DT)</label>
-              <input type="number" step="0.01" value={bulletinForm.montant_depense || ''} onChange={(e) => setBulletinForm({...bulletinForm, montant_depense: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Montant (DT)</label>               <input type="text" inputMode="decimal" value={bulletinForm.montant_depense || ''} onChange={(e) => { let val = e.target.value.replace(/[^0-9.,]/g, ''); val = val.replace(',', '.'); setBulletinForm({...bulletinForm, montant_depense: val}); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Type de soin</label>
@@ -764,8 +832,7 @@ export default function AdherentDetails() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bordereau</label>
-              <input type="number" value={bordereauForm.numero_bordereau || ''} onChange={(e) => setBordereauForm({...bordereauForm, numero_bordereau: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bordereau</label>               <input type="text" inputMode="numeric" pattern="[0-9]*" value={bordereauForm.numero_bordereau || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setBordereauForm({...bordereauForm, numero_bordereau: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Date envoi</label>
