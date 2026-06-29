@@ -2,6 +2,130 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
+function FormModal({ modal, form, errors, onSubmit, onChange, onClose }) {
+  const handleChange = (field) => (e) => {
+    let val = e.target.value;
+    if (field === 'matricule' || field === 'cin') {
+      val = val.replace(/\D/g, '');
+    }
+    onChange(field, val);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">{modal === 'add' ? 'Nouvel adhérent' : 'Modifier adhérent'}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+        <form onSubmit={onSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Matricule <span className="text-red-500">*</span></label>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.matricule} onChange={handleChange('matricule')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.matricule ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.matricule && <p className="text-xs text-red-500 mt-1">{errors.matricule}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">CIN <span className="text-red-500">*</span></label>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.cin} onChange={handleChange('cin')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.cin ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.cin && <p className="text-xs text-red-500 mt-1">{errors.cin}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Nom <span className="text-red-500">*</span></label>
+              <input type="text" value={form.nom} onChange={handleChange('nom')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.nom ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.nom && <p className="text-xs text-red-500 mt-1">{errors.nom}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Prénom <span className="text-red-500">*</span></label>
+              <input type="text" value={form.prenom} onChange={handleChange('prenom')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.prenom ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.prenom && <p className="text-xs text-red-500 mt-1">{errors.prenom}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">État civil <span className="text-red-500">*</span></label>
+              <select value={form.etat_civil} onChange={handleChange('etat_civil')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.etat_civil ? 'border-red-400' : 'border-gray-300'}`}>
+                <option value="">Sélectionner</option>
+                <option value="C">Célibataire</option>
+                <option value="M">Marié(e)</option>
+              </select>
+              {errors.etat_civil && <p className="text-xs text-red-500 mt-1">{errors.etat_civil}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Sexe <span className="text-red-500">*</span></label>
+              <select value={form.sexe} onChange={handleChange('sexe')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.sexe ? 'border-red-400' : 'border-gray-300'}`}>
+                <option value="">Sélectionner</option>
+                <option value="H">Homme</option>
+                <option value="F">Femme</option>
+              </select>
+              {errors.sexe && <p className="text-xs text-red-500 mt-1">{errors.sexe}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date naissance <span className="text-red-500">*</span></label>
+              <input type="date" value={form.date_naissance} onChange={handleChange('date_naissance')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.date_naissance ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.date_naissance && <p className="text-xs text-red-500 mt-1">{errors.date_naissance}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date adhésion <span className="text-red-500">*</span></label>
+              <input type="date" value={form.date_adhesion} onChange={handleChange('date_adhesion')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.date_adhesion ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.date_adhesion && <p className="text-xs text-red-500 mt-1">{errors.date_adhesion}</p>}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Adresse <span className="text-red-500">*</span></label>
+            <input type="text" value={form.adresse} onChange={handleChange('adresse')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.adresse ? 'border-red-400' : 'border-gray-300'}`} />
+            {errors.adresse && <p className="text-xs text-red-500 mt-1">{errors.adresse}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone <span className="text-red-500">*</span></label>
+              <input type="text" value={form.telephone} onChange={handleChange('telephone')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.telephone ? 'border-red-400' : 'border-gray-300'}`} />
+              {errors.telephone && <p className="text-xs text-red-500 mt-1">{errors.telephone}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Statut <span className="text-red-500">*</span></label>
+              <select value={form.statut} onChange={handleChange('statut')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.statut ? 'border-red-400' : 'border-gray-300'}`}>
+                <option value="Actif">Actif</option>
+                <option value="Inactif">Inactif</option>
+              </select>
+              {errors.statut && <p className="text-xs text-red-500 mt-1">{errors.statut}</p>}
+            </div>
+          </div>
+          <div className="pt-2 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">Annuler</button>
+            <button type="submit" className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition">Enregistrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ViewModal({ selected, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Détails adhérent</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+        <div className="p-5 space-y-3">
+          {[
+            ['Matricule', selected?.matricule], ['Nom', selected?.nom], ['Prénom', selected?.prenom],
+            ['État civil', selected?.etat_civil], ['Sexe', selected?.sexe],
+            ['Date naissance', selected?.date_naissance], ['Date adhésion', selected?.date_adhesion],
+            ['Adresse', selected?.adresse], ['CIN', selected?.cin], ['Téléphone', selected?.telephone],
+            ['Statut', selected?.statut],
+          ].map(([label, value]) => (
+            <div key={label} className="flex justify-between text-sm">
+              <span className="text-gray-500">{label}</span>
+              <span className="text-gray-900 font-medium">{value || '-'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Adherents() {
   const navigate = useNavigate();
   const [adherents, setAdherents] = useState([]);
@@ -57,6 +181,8 @@ export default function Adherents() {
     setModal(type);
   };
 
+  const closeModal = () => setModal(null);
+
   const validateForm = () => {
     const newErrors = {};
     const required = ['matricule', 'nom', 'prenom', 'etat_civil', 'sexe', 'date_naissance', 'date_adhesion', 'adresse', 'cin', 'telephone', 'statut'];
@@ -96,6 +222,11 @@ export default function Adherents() {
     }
   };
 
+  const handleFormChange = (field, value) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+    setErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Confirmer la suppression ?')) return;
     try {
@@ -106,118 +237,6 @@ export default function Adherents() {
       showNotif('Erreur lors de la suppression.', 'error');
     }
   };
-
-  const FormModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setModal(null)}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">{modal === 'add' ? 'Nouvel adhérent' : 'Modifier adhérent'}</h3>
-          <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600">&times;</button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Matricule <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.matricule} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setForm({...form, matricule: val}); setErrors({...errors, matricule: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.matricule ? 'border-red-400' : 'border-gray-300'}`} />
-              {errors.matricule && <p className="text-xs text-red-500 mt-1">{errors.matricule}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">CIN <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.cin} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setForm({...form, cin: val}); setErrors({...errors, cin: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.cin ? 'border-red-400' : 'border-gray-300'}`} />
-              {errors.cin && <p className="text-xs text-red-500 mt-1">{errors.cin}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Nom <span className="text-red-500">*</span></label>
-              <input type="text" value={form.nom} onChange={(e) => { setForm({...form, nom: e.target.value}); setErrors({...errors, nom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.nom ? 'border-red-400' : 'border-gray-300'}`} />
-              {errors.nom && <p className="text-xs text-red-500 mt-1">{errors.nom}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Prénom <span className="text-red-500">*</span></label>
-              <input type="text" value={form.prenom} onChange={(e) => { setForm({...form, prenom: e.target.value}); setErrors({...errors, prenom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.prenom ? 'border-red-400' : 'border-gray-300'}`} />
-              {errors.prenom && <p className="text-xs text-red-500 mt-1">{errors.prenom}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">État civil <span className="text-red-500">*</span></label>
-              <select value={form.etat_civil} onChange={(e) => { setForm({...form, etat_civil: e.target.value}); setErrors({...errors, etat_civil: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.etat_civil ? 'border-red-400' : 'border-gray-300'}`}>
-                <option value="">Sélectionner</option>
-                <option value="C">Célibataire</option>
-                <option value="M">Marié(e)</option>
-              </select>
-              {errors.etat_civil && <p className="text-xs text-red-500 mt-1">{errors.etat_civil}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Sexe <span className="text-red-500">*</span></label>
-              <select value={form.sexe} onChange={(e) => { setForm({...form, sexe: e.target.value}); setErrors({...errors, sexe: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.sexe ? 'border-red-400' : 'border-gray-300'}`}>
-                <option value="">Sélectionner</option>
-                <option value="H">Homme</option>
-                <option value="F">Femme</option>
-              </select>
-              {errors.sexe && <p className="text-xs text-red-500 mt-1">{errors.sexe}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Date naissance <span className="text-red-500">*</span></label>
-              <input type="date" value={form.date_naissance} onChange={(e) => { setForm({...form, date_naissance: e.target.value}); setErrors({...errors, date_naissance: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.date_naissance ? 'border-red-400' : 'border-gray-300'}`} />
-              {errors.date_naissance && <p className="text-xs text-red-500 mt-1">{errors.date_naissance}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Date adhésion <span className="text-red-500">*</span></label>
-              <input type="date" value={form.date_adhesion} onChange={(e) => { setForm({...form, date_adhesion: e.target.value}); setErrors({...errors, date_adhesion: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.date_adhesion ? 'border-red-400' : 'border-gray-300'}`} />
-              {errors.date_adhesion && <p className="text-xs text-red-500 mt-1">{errors.date_adhesion}</p>}
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Adresse <span className="text-red-500">*</span></label>
-            <input type="text" value={form.adresse} onChange={(e) => { setForm({...form, adresse: e.target.value}); setErrors({...errors, adresse: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.adresse ? 'border-red-400' : 'border-gray-300'}`} />
-            {errors.adresse && <p className="text-xs text-red-500 mt-1">{errors.adresse}</p>}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone <span className="text-red-500">*</span></label>
-              <input type="text" value={form.telephone} onChange={(e) => { setForm({...form, telephone: e.target.value}); setErrors({...errors, telephone: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.telephone ? 'border-red-400' : 'border-gray-300'}`} />
-              {errors.telephone && <p className="text-xs text-red-500 mt-1">{errors.telephone}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Statut <span className="text-red-500">*</span></label>
-              <select value={form.statut} onChange={(e) => { setForm({...form, statut: e.target.value}); setErrors({...errors, statut: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.statut ? 'border-red-400' : 'border-gray-300'}`}>
-                <option value="Actif">Actif</option>
-                <option value="Inactif">Inactif</option>
-              </select>
-              {errors.statut && <p className="text-xs text-red-500 mt-1">{errors.statut}</p>}
-            </div>
-          </div>
-          <div className="pt-2 flex justify-end gap-3">
-            <button type="button" onClick={() => setModal(null)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">Annuler</button>
-            <button type="submit" className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition">Enregistrer</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-
-  const ViewModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setModal(null)}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Détails adhérent</h3>
-          <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600">&times;</button>
-        </div>
-        <div className="p-5 space-y-3">
-          {[
-            ['Matricule', selected?.matricule], ['Nom', selected?.nom], ['Prénom', selected?.prenom],
-            ['État civil', selected?.etat_civil], ['Sexe', selected?.sexe],
-            ['Date naissance', selected?.date_naissance], ['Date adhésion', selected?.date_adhesion],
-            ['Adresse', selected?.adresse], ['CIN', selected?.cin], ['Téléphone', selected?.telephone],
-            ['Statut', selected?.statut],
-          ].map(([label, value]) => (
-            <div key={label} className="flex justify-between text-sm">
-              <span className="text-gray-500">{label}</span>
-              <span className="text-gray-900 font-medium">{value || '-'}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-4">
@@ -257,6 +276,7 @@ export default function Adherents() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">CIN</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Téléphone</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Statut</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600 text-xs uppercase">Sous-adhérents</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600 text-xs uppercase">Actions</th>
               </tr>
             </thead>
@@ -271,13 +291,16 @@ export default function Adherents() {
                   <td className="px-4 py-3">
                     <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${a.statut === 'Actif' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{a.statut}</span>
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-sm font-semibold">{a.sous_adherents_count ?? 0}</span>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button onClick={() => openModal('view', a)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Voir">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                       </button>
                       <button onClick={() => navigate(`/adherents/${a.id_adherent}`)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Dossier">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253\" /></svg>
                       </button>
                       <button onClick={() => openModal('edit', a)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Modifier">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -290,7 +313,7 @@ export default function Adherents() {
                 </tr>
               ))}
               {!loading && adherents.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-8 text-gray-500">Aucun adhérent trouvé</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-gray-500">Aucun adhérent trouvé</td></tr>
               )}
             </tbody>
           </table>
@@ -309,8 +332,17 @@ export default function Adherents() {
       </div>
 
       {/* Modals */}
-      {modal === 'view' && <ViewModal />}
-      {(modal === 'add' || modal === 'edit') && <FormModal />}
+      {modal === 'view' && <ViewModal selected={selected} onClose={closeModal} />}
+      {(modal === 'add' || modal === 'edit') && (
+        <FormModal
+          modal={modal}
+          form={form}
+          errors={errors}
+          onSubmit={handleSubmit}
+          onChange={handleFormChange}
+          onClose={closeModal}
+        />
+      )}
     </div>
   );
 }

@@ -56,4 +56,43 @@ class AuthController extends Controller
             'user' => $request->user(),
         ]);
     }
+
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $rules = [
+            'email' => ['sometimes', 'email', 'unique:user,email,' . $user->id],
+            'mot_de_passe_actuel' => ['required_with:nouveau_mot_de_passe', 'string'],
+            'nouveau_mot_de_passe' => ['sometimes', 'string', 'min:8', 'confirmed'],
+        ];
+
+        $data = $request->validate($rules);
+
+        // Update email if provided
+        if (isset($data['email'])) {
+            $user->email = $data['email'];
+        }
+
+        // Update password if provided
+        if (isset($data['nouveau_mot_de_passe'])) {
+            if (! Hash::check($data['mot_de_passe_actuel'], $user->mot_de_passe)) {
+                throw ValidationException::withMessages([
+                    'mot_de_passe_actuel' => ['Le mot de passe actuel est incorrect.'],
+                ]);
+            }
+            $user->mot_de_passe = $data['nouveau_mot_de_passe'];
+        }
+
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profil mis à jour avec succès.',
+            'user' => [
+                'id' => $user->id,
+                'email' => $user->email,
+            ],
+        ]);
+    }
 }

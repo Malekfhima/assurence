@@ -15,6 +15,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::put('/profile', [AuthController::class, 'updateProfile']);
 
     // --- Dashboard ---
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
@@ -22,6 +23,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- CRUD Adhérents ---
     Route::get('/adherents', [AdherentController::class, 'index']);
     Route::post('/adherents', [AdherentController::class, 'store']);
+    Route::get('/adherents/by-matricule/{matricule}', [AdherentController::class, 'byMatricule']);
     Route::get('/adherents/{id}', [AdherentController::class, 'show']);
     Route::put('/adherents/{id}', [AdherentController::class, 'update']);
     Route::delete('/adherents/{id}', [AdherentController::class, 'destroy']);
@@ -39,8 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/bulletins/{id}', [BulletinSoinController::class, 'show']);
     Route::put('/bulletins/{id}', [BulletinSoinController::class, 'update']);
     Route::delete('/bulletins/{id}', [BulletinSoinController::class, 'destroy']);
-    Route::post('/bulletins/{id}/valider', [BulletinSoinController::class, 'valider']);
-    Route::post('/bulletins/{id}/rejeter', [BulletinSoinController::class, 'rejeter']);
+
 
     // --- CRUD Bordereaux ---
     Route::get('/bordereaux', [BordereauController::class, 'index']);

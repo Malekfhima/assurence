@@ -81,9 +81,6 @@ export default function AdherentDetails() {
   const [sousErrors, setSousErrors] = useState({});
   const [bulletinForm, setBulletinForm] = useState({ numero_bulletin: '', date_soin: '', montant_depense: '', type_soin: '', description: '', etat: 'En attente' });
   const [bordereauForm, setBordereauForm] = useState({ id_bulletin: '', numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
-  const [rejetMotif, setRejetMotif] = useState('');
-  const [showRejetModal, setShowRejetModal] = useState(false);
-  const [rejetBulletinId, setRejetBulletinId] = useState(null);
   const [viewBulletin, setViewBulletin] = useState(null);
 
   const showNotif = (msg, type = 'success') => {
@@ -279,33 +276,7 @@ export default function AdherentDetails() {
     }
   };
 
-  const handleValider = async (idBulletin) => {
-    try {
-      await api.post(`/bulletins/${idBulletin}/valider`);
-      showNotif('Bulletin validé avec succès.');
-      fetchAll();
-    } catch (err) {
-      showNotif('Erreur lors de la validation.', 'error');
-    }
-  };
 
-  const openRejetModal = (idBulletin) => {
-    setRejetBulletinId(idBulletin);
-    setRejetMotif('');
-    setShowRejetModal(true);
-  };
-
-  const handleRejeter = async () => {
-    if (!rejetMotif.trim()) return;
-    try {
-      await api.post(`/bulletins/${rejetBulletinId}/rejeter`, { motif: rejetMotif });
-      showNotif('Bulletin rejeté.');
-      setShowRejetModal(false);
-      fetchAll();
-    } catch (err) {
-      showNotif('Erreur lors du rejet.', 'error');
-    }
-  };
 
   // --- Bordereaux CRUD ---
   const openBordereauModal = (type, bordereau = null) => {
@@ -570,20 +541,6 @@ export default function AdherentDetails() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                         </button>
-                        {b.etat === 'En attente' && (
-                          <>
-                            <button onClick={() => handleValider(b.id_bulletin)} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Valider">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </button>
-                            <button onClick={() => openRejetModal(b.id_bulletin)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Rejeter">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </>
-                        )}
                         <button onClick={() => handleDeleteBulletin(b.id_bulletin)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Supprimer">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -881,17 +838,7 @@ export default function AdherentDetails() {
         )}
       </Modal>
 
-      {/* Rejet Modal */}
-      <Modal open={showRejetModal} onClose={() => setShowRejetModal(false)} title="Rejeter le bulletin">
-        <div className="p-5 space-y-4">
-          <p className="text-sm text-gray-600">Veuillez indiquer le motif du rejet :</p>
-          <textarea value={rejetMotif} onChange={(e) => setRejetMotif(e.target.value)} rows={3} placeholder="Motif du rejet..." className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          <div className="pt-2 flex justify-end gap-3">
-            <button onClick={() => setShowRejetModal(false)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">Annuler</button>
-            <button onClick={handleRejeter} disabled={!rejetMotif.trim()} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50">Rejeter</button>
-          </div>
-        </div>
-      </Modal>
+
     </div>
   );
 }

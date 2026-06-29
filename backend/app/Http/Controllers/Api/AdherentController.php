@@ -12,7 +12,7 @@ class AdherentController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Adherent::with('sousAdherents');
+        $query = Adherent::withCount('sousAdherents');
 
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
@@ -105,6 +105,25 @@ class AdherentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Adhérent supprimé avec succès.',
+        ]);
+    }
+
+    public function byMatricule(string $matricule): JsonResponse
+    {
+        $adherent = Adherent::with('sousAdherents')
+            ->where('matricule', $matricule)
+            ->first();
+
+        if (!$adherent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun adhérent trouvé avec ce matricule.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $adherent,
         ]);
     }
 }

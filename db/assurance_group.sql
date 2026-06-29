@@ -36,9 +36,9 @@ CREATE TABLE `adherent` (
   `sexe` varchar(20) DEFAULT NULL,
   `date_naissance` date DEFAULT NULL,
   `date_adhesion` date DEFAULT NULL,
-  `adresse` varchar(255) DEFAULT NULL,
+  `adresse` varchar(500) NOT NULL,
   `cin` int(11) DEFAULT NULL,
-  `telephone` varchar(20) DEFAULT NULL,
+  `telephone` varchar(30) NOT NULL,
   `identifiant` varchar(100) DEFAULT NULL,
   `mot_de_passe` varchar(255) DEFAULT NULL,
   `statut` varchar(100) NOT NULL
@@ -222,13 +222,29 @@ CREATE TABLE `bordereau` (
 CREATE TABLE `bulletin_soin` (
   `id_bulletin` int(11) NOT NULL,
   `id_adherent` int(11) NOT NULL,
-  `numero_bordereau` int(11) NOT NULL,
+  `id_sous_adherent` int(11) DEFAULT NULL,
+  `numero_bordereau` int(11) NOT NULL DEFAULT 0,
   `numero_bulletin` int(11) NOT NULL,
   `date_soin` date DEFAULT NULL,
   `montant_depense` decimal(10,2) DEFAULT NULL,
   `type_soin` varchar(100) DEFAULT NULL,
   `description` varchar(255) DEFAULT NULL,
-  `etat` varchar(50) DEFAULT NULL
+  `etat` varchar(50) DEFAULT 'En attente'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `bulletin_soin_detail`
+--
+
+CREATE TABLE `bulletin_soin_detail` (
+  `id_detail` int(11) NOT NULL,
+  `id_bulletin` int(11) NOT NULL,
+  `date` date DEFAULT NULL,
+  `montant` decimal(10,2) DEFAULT 0.00,
+  `ordonnance` tinyint(1) DEFAULT 0,
+  `type_soin` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -444,6 +460,25 @@ INSERT INTO `sous_adherent` (`id_sous_adherent`, `id_adherent`, `nom`, `prenom`,
 -- --------------------------------------------------------
 
 --
+-- Structure de la table `personal_access_tokens`
+--
+
+CREATE TABLE `personal_access_tokens` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `tokenable_type` varchar(255) NOT NULL,
+  `tokenable_id` bigint(20) UNSIGNED NOT NULL,
+  `name` text NOT NULL,
+  `token` varchar(64) NOT NULL,
+  `abilities` text DEFAULT NULL,
+  `last_used_at` timestamp NULL DEFAULT NULL,
+  `expires_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Structure de la table `user`
 --
 
@@ -482,7 +517,15 @@ ALTER TABLE `bordereau`
 --
 ALTER TABLE `bulletin_soin`
   ADD PRIMARY KEY (`id_bulletin`),
-  ADD UNIQUE KEY `id_adherent` (`id_adherent`) USING BTREE;
+  ADD KEY `id_adherent` (`id_adherent`),
+  ADD KEY `id_sous_adherent` (`id_sous_adherent`);
+
+--
+-- Index pour la table `bulletin_soin_detail`
+--
+ALTER TABLE `bulletin_soin_detail`
+  ADD PRIMARY KEY (`id_detail`),
+  ADD KEY `id_bulletin` (`id_bulletin`);
 
 --
 -- Index pour la table `sous_adherent`
@@ -490,6 +533,15 @@ ALTER TABLE `bulletin_soin`
 ALTER TABLE `sous_adherent`
   ADD PRIMARY KEY (`id_sous_adherent`),
   ADD KEY `id_adherent` (`id_adherent`);
+
+--
+-- Index pour la table `personal_access_tokens`
+--
+ALTER TABLE `personal_access_tokens`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `token` (`token`),
+  ADD KEY `tokenable_type_tokenable_id` (`tokenable_type`,`tokenable_id`),
+  ADD KEY `expires_at` (`expires_at`);
 
 --
 -- Index pour la table `user`
@@ -520,10 +572,23 @@ ALTER TABLE `bulletin_soin`
   MODIFY `id_bulletin` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT pour la table `bulletin_soin_detail`
+--
+ALTER TABLE `bulletin_soin_detail`
+  MODIFY `id_detail` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT pour la table `sous_adherent`
 --
 ALTER TABLE `sous_adherent`
   MODIFY `id_sous_adherent` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=189;
+
+--
+--
+-- AUTO_INCREMENT pour la table `personal_access_tokens`
+--
+ALTER TABLE `personal_access_tokens`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT pour la table `user`
@@ -545,7 +610,14 @@ ALTER TABLE `bordereau`
 -- Contraintes pour la table `bulletin_soin`
 --
 ALTER TABLE `bulletin_soin`
-  ADD CONSTRAINT `bulletin_soin_ibfk_1` FOREIGN KEY (`id_adherent`) REFERENCES `adherent` (`id_adherent`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `bulletin_soin_ibfk_1` FOREIGN KEY (`id_adherent`) REFERENCES `adherent` (`id_adherent`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `bulletin_soin_ibfk_2` FOREIGN KEY (`id_sous_adherent`) REFERENCES `sous_adherent` (`id_sous_adherent`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
+-- Contraintes pour la table `bulletin_soin_detail`
+--
+ALTER TABLE `bulletin_soin_detail`
+  ADD CONSTRAINT `bulletin_soin_detail_ibfk_1` FOREIGN KEY (`id_bulletin`) REFERENCES `bulletin_soin` (`id_bulletin`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Contraintes pour la table `sous_adherent`

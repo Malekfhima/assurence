@@ -1,5 +1,162 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
+
+const TYPE_SOIN_OPTIONS = [
+  'Consultation',
+  'Soins infirmiers',
+  'Radiologie',
+  'Analyses',
+  'Hospitalisation',
+  'Médicaments',
+  'Kinésithérapie',
+  'Dentaire',
+  'Ophtalmologie',
+  'Autre',
+];
+
+function emptyDetail() {
+  return {
+    date: '',
+    montant: '',
+    ordonnance: false,
+    type_soin: '',
+  };
+}
+
+function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdherents, errors, onSubmit, onChange, onMatriculeChange, onDetailChange, onAddDetail, onRemoveDetail, onClose }) {
+  const selectedAdherent = matchedAdherent || adherents.find((a) => a.id_adherent === Number(form.id_adherent));
+  const totalMontant = details.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">{modal === 'add' ? 'Nouveau bulletin' : 'Modifier bulletin'}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+        <form onSubmit={onSubmit} className="p-5 space-y-4">
+          {/* En-tête bulletin */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Matricule <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                value={form.matricule_saisi || ''}
+                onChange={(e) => onMatriculeChange(e.target.value)}
+                placeholder="Tapez le matricule"
+                className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.id_adherent ? 'border-red-400' : 'border-gray-300'}`}
+              />
+              {errors.id_adherent && <p className="text-xs text-red-500 mt-1">{errors.id_adherent}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Nom de l'adhérent</label>
+              <input
+                type="text"
+                value={selectedAdherent ? `${selectedAdherent.nom} ${selectedAdherent.prenom}` : ''}
+                readOnly
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-600"
+                placeholder="Automatique"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bulletin <span className="text-red-500">*</span></label>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.numero_bulletin} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); onChange('numero_bulletin', val); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+          </div>
+          {/* Bénéficiaire */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Bénéficiaire</label>
+            <select
+              value={form.id_sous_adherent || ''}
+              onChange={(e) => onChange('id_sous_adherent', e.target.value)}
+              className={`w-full max-w-sm px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.id_sous_adherent ? 'border-red-400' : 'border-gray-300'}`}
+            >
+              <option value="">— L'Adhérent —</option>
+              {sousAdherents.map((sa) => (
+                <option key={sa.id_sous_adherent} value={sa.id_sous_adherent}>
+                  {sa.nom} {sa.prenom} ({sa.lien_parente || 'Sous-adhérent'})
+                </option>
+              ))}
+            </select>
+            {errors.id_sous_adherent && <p className="text-xs text-red-500 mt-1">{errors.id_sous_adherent}</p>}
+          </div>
+
+          {/* Tableau des détails de soin */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-gray-700">Détails des soins</label>
+              <button type="button" onClick={onAddDetail} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                Ajouter une ligne
+              </button>
+            </div>
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase w-28">Date</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase">Montant</th>
+                    <th className="text-center px-3 py-2 font-medium text-gray-600 text-xs uppercase w-24">Ordonnance</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase w-36">Type de soin</th>
+                    <th className="text-center px-3 py-2 font-medium text-gray-600 text-xs uppercase w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {details.map((d, i) => (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-3 py-1.5">
+                        <input type="date" value={d.date} onChange={(e) => onDetailChange(i, 'date', e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none" />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <input type="text" inputMode="decimal" value={d.montant} onChange={(e) => { let val = e.target.value.replace(/[^0-9.,]/g, ''); val = val.replace(',', '.'); onDetailChange(i, 'montant', val); }} placeholder="Montant" className="w-full max-w-[120px] px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none text-right" />
+                      </td>
+                      <td className="px-3 py-1.5 text-center">
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                          <input type="checkbox" checked={d.ordonnance} onChange={(e) => onDetailChange(i, 'ordonnance', e.target.checked)} className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                          <span className="text-xs text-gray-600">{d.ordonnance ? 'Oui' : 'Non'}</span>
+                        </label>
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <select value={d.type_soin} onChange={(e) => onDetailChange(i, 'type_soin', e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                          <option value="">Sélectionner</option>
+                          {TYPE_SOIN_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-3 py-1.5 text-center">
+                        <button type="button" onClick={() => onRemoveDetail(i)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition" title="Supprimer">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {details.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="text-center py-6 text-gray-400 text-xs">Aucune ligne. Cliquez sur "Ajouter une ligne" pour commencer.</td>
+                    </tr>
+                  )}
+                </tbody>
+                <tfoot className="bg-gray-50 border-t border-gray-200">
+                  <tr>
+                    <td colSpan={4} className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Montant total</td>
+                    <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {/* Boutons */}
+          <div className="pt-2 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">Annuler</button>
+            <button type="submit" className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition">Enregistrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function Bulletins() {
   const [bulletins, setBulletins] = useState([]);
@@ -10,8 +167,13 @@ export default function Bulletins() {
   const [modal, setModal] = useState(null);
   const [selected, setSelected] = useState(null);
   const [adherents, setAdherents] = useState([]);
-  const [form, setForm] = useState({ id_adherent: '', numero_bulletin: '', date_soin: '', montant_depense: '', type_soin: '', description: '', etat: 'En attente' });
+  const [matchedAdherent, setMatchedAdherent] = useState(null);
+  const [sousAdherents, setSousAdherents] = useState([]);
+  const [form, setForm] = useState({ id_adherent: '', id_sous_adherent: '', numero_bulletin: '', etat: 'En attente', matricule_saisi: '' });
+  const [details, setDetails] = useState([]);
+  const [errors, setErrors] = useState({});
   const [notification, setNotification] = useState(null);
+  const matriculeTimeoutRef = useRef(null);
 
   const showNotif = (msg, type = 'success') => {
     setNotification({ msg, type });
@@ -43,6 +205,24 @@ export default function Bulletins() {
     } catch (err) { console.error(err); }
   };
 
+  const fetchAdherentByMatricule = async (matricule) => {
+    try {
+      const res = await api.get(`/adherents/by-matricule/${encodeURIComponent(matricule)}`);
+      if (res.data.success) {
+        const adherent = res.data.data;
+        setMatchedAdherent(adherent);
+        setSousAdherents(adherent.sous_adherents || []);
+        return adherent;
+      }
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setMatchedAdherent(null);
+        setSousAdherents([]);
+      }
+    }
+    return null;
+  };
+
   useEffect(() => { fetchBulletins(); fetchAdherents(); }, []);
 
   useEffect(() => {
@@ -50,31 +230,137 @@ export default function Bulletins() {
     return () => clearTimeout(timer);
   }, [search, etatFilter]);
 
+  // Mettre à jour les sous-adhérents quand l'adhérent change (mode édition)
+  useEffect(() => {
+    if (!form.id_adherent) {
+      return;
+    }
+    // Si on a déjà les sous-adhérents via l'API matricule, ne pas écraser
+    if (matchedAdherent && Number(matchedAdherent.id_adherent) === Number(form.id_adherent)) {
+      return;
+    }
+    const adherent = adherents.find((a) => a.id_adherent === Number(form.id_adherent));
+    if (adherent?.sous_adherents) {
+      setSousAdherents(adherent.sous_adherents);
+    }
+  }, [form.id_adherent, adherents, matchedAdherent]);
+
   const openModal = (type, bulletin = null) => {
     if (type === 'edit' && bulletin) {
       setSelected(bulletin);
-      setForm({ ...bulletin, date_soin: bulletin.date_soin || '' });
+      setMatchedAdherent(null);
+      const editAdherent = adherents.find((a) => a.id_adherent === Number(bulletin.id_adherent));
+      setForm({
+        id_adherent: bulletin.id_adherent,
+        id_sous_adherent: bulletin.id_sous_adherent || '',
+        numero_bulletin: bulletin.numero_bulletin,
+        etat: bulletin.etat || 'En attente',
+        matricule_saisi: editAdherent?.matricule || '',
+
+      });
+      setDetails((bulletin.details || []).map((d) => ({
+        ...d,
+        montant: d.montant !== null && d.montant !== undefined ? String(d.montant) : '',
+        ordonnance: Boolean(d.ordonnance),
+      })));
+      const adherent = adherents.find((a) => a.id_adherent === Number(bulletin.id_adherent));
+      setSousAdherents(adherent?.sous_adherents || []);
     } else {
       setSelected(null);
-      setForm({ id_adherent: '', numero_bulletin: '', date_soin: '', montant_depense: '', type_soin: '', description: '', etat: 'En attente' });
+      setMatchedAdherent(null);
+      setForm({ id_adherent: '', id_sous_adherent: '', numero_bulletin: '', etat: 'En attente', matricule_saisi: '' });
+      setSousAdherents([]);
+      setDetails([emptyDetail()]);
     }
+    setErrors({});
     setModal(type);
+  };
+
+  const closeModal = () => setModal(null);
+
+  const handleFormChange = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const handleMatriculeChange = (value) => {
+    setForm((prev) => ({ ...prev, matricule_saisi: value }));
+    setErrors((prev) => ({ ...prev, id_adherent: '' }));
+
+    if (!value) {
+      setForm((prev) => ({ ...prev, id_adherent: '', id_sous_adherent: '' }));
+      setMatchedAdherent(null);
+      setSousAdherents([]);
+      return;
+    }
+
+    // Debounce : attendre 300ms avant de lancer la recherche
+    if (matriculeTimeoutRef.current) {
+      clearTimeout(matriculeTimeoutRef.current);
+    }
+
+    matriculeTimeoutRef.current = setTimeout(async () => {
+      const adherent = await fetchAdherentByMatricule(value);
+      if (adherent) {
+        setForm((prev) => ({
+          ...prev,
+          id_adherent: adherent.id_adherent,
+          id_sous_adherent: '',
+        }));
+      } else {
+        setForm((prev) => ({ ...prev, id_adherent: '', id_sous_adherent: '' }));
+      }
+    }, 300);
+  };
+
+  const handleDetailChange = (index, field, value) => {
+    setDetails((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleAddDetail = () => {
+    setDetails((prev) => [...prev, emptyDetail()]);
+  };
+
+  const handleRemoveDetail = (index) => {
+    setDetails((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Filtrer les lignes vides et normaliser les montants
+    const validDetails = details
+      .filter((d) => parseFloat(d.montant) > 0)
+      .map((d) => ({
+        ...d,
+        montant: d.montant === '' || d.montant === undefined || d.montant === null ? '0' : d.montant,
+        ordonnance: d.ordonnance ? 1 : 0,
+      }));
+    const payload = { ...form, details: validDetails };
     try {
       if (modal === 'add') {
-        await api.post('/bulletins', form);
+        await api.post('/bulletins', payload);
         showNotif('Bulletin créé avec succès.');
       } else {
-        await api.put(`/bulletins/${selected.id_bulletin}`, form);
+        await api.put(`/bulletins/${selected.id_bulletin}`, payload);
         showNotif('Bulletin modifié avec succès.');
       }
       setModal(null);
       fetchBulletins(meta.current_page);
     } catch (err) {
-      showNotif(err.response?.data?.message || 'Erreur lors de la sauvegarde.', 'error');
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors) {
+        const fieldErrors = {};
+        Object.keys(serverErrors).forEach((field) => {
+          fieldErrors[field] = serverErrors[field][0];
+        });
+        setErrors(fieldErrors);
+      } else {
+        showNotif(err.response?.data?.message || 'Erreur lors de la sauvegarde.', 'error');
+      }
     }
   };
 
@@ -89,28 +375,6 @@ export default function Bulletins() {
     }
   };
 
-  const handleValider = async (id) => {
-    try {
-      await api.post(`/bulletins/${id}/valider`);
-      showNotif('Bulletin validé.');
-      fetchBulletins(meta.current_page);
-    } catch (err) {
-      showNotif('Erreur lors de la validation.', 'error');
-    }
-  };
-
-  const handleRejeter = async (id) => {
-    const motif = window.prompt('Motif du rejet :');
-    if (motif === null) return;
-    try {
-      await api.post(`/bulletins/${id}/rejeter`, { motif });
-      showNotif('Bulletin rejeté.');
-      fetchBulletins(meta.current_page);
-    } catch (err) {
-      showNotif('Erreur lors du rejet.', 'error');
-    }
-  };
-
   const etatBadge = (etat) => {
     const styles = {
       'En attente': 'bg-amber-50 text-amber-700 border-amber-200',
@@ -119,54 +383,6 @@ export default function Bulletins() {
     };
     return `inline-flex px-2 py-1 rounded-full text-xs font-medium border ${styles[etat] || 'bg-gray-50 text-gray-600 border-gray-200'}`;
   };
-
-  const FormModal = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setModal(null)}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">{modal === 'add' ? 'Nouveau bulletin' : 'Modifier bulletin'}</h3>
-          <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600">&times;</button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Adhérent</label>
-            <select value={form.id_adherent} onChange={(e) => setForm({...form, id_adherent: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-              <option value="">Sélectionner un adhérent</option>
-              {adherents.map((a) => (
-                <option key={a.id_adherent} value={a.id_adherent}>{a.nom} {a.prenom} ({a.matricule})</option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bulletin</label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.numero_bulletin} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setForm({...form, numero_bulletin: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Date soin</label>
-              <input type="date" value={form.date_soin} onChange={(e) => setForm({...form, date_soin: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Montant</label>
-              <input type="text" inputMode="decimal" value={form.montant_depense} onChange={(e) => { let val = e.target.value.replace(/[^0-9.,]/g, ''); val = val.replace(',', '.'); setForm({...form, montant_depense: val}); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Type de soin</label>
-              <input type="text" value={form.type_soin} onChange={(e) => setForm({...form, type_soin: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
-            <textarea value={form.description} onChange={(e) => setForm({...form, description: e.target.value})} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          </div>
-          <div className="pt-2 flex justify-end gap-3">
-            <button type="button" onClick={() => setModal(null)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">Annuler</button>
-            <button type="submit" className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition">Enregistrer</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-4">
@@ -207,6 +423,7 @@ export default function Bulletins() {
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">N° Bulletin</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Adhérent</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Bénéficiaire</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Date soin</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Montant</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Type</th>
@@ -219,7 +436,10 @@ export default function Bulletins() {
                 <tr key={b.id_bulletin} className="hover:bg-gray-50 transition">
                   <td className="px-4 py-3 font-medium text-gray-900">{b.numero_bulletin}</td>
                   <td className="px-4 py-3 text-gray-700">{b.adherent?.nom} {b.adherent?.prenom}</td>
-                  <td className="px-4 py-3 text-gray-500">{b.date_soin || '-'}</td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {b.sous_adherent ? `${b.sous_adherent.nom} ${b.sous_adherent.prenom}` : 'L\'adhérent'}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">{b.details?.[0]?.date || b.date_soin || '-'}</td>
                   <td className="px-4 py-3 text-gray-900 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN')} DT</td>
                   <td className="px-4 py-3 text-gray-500">{b.type_soin || '-'}</td>
                   <td className="px-4 py-3"><span className={etatBadge(b.etat)}>{b.etat}</span></td>
@@ -228,16 +448,6 @@ export default function Bulletins() {
                       <button onClick={() => openModal('edit', b)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Modifier">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </button>
-                      {b.etat === 'En attente' && (
-                        <>
-                          <button onClick={() => handleValider(b.id_bulletin)} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Valider">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                          </button>
-                          <button onClick={() => handleRejeter(b.id_bulletin)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Rejeter">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
-                        </>
-                      )}
                       <button onClick={() => handleDelete(b.id_bulletin)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Supprimer">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
@@ -246,7 +456,7 @@ export default function Bulletins() {
                 </tr>
               ))}
               {!loading && bulletins.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-8 text-gray-500">Aucun bulletin trouvé</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-gray-500">Aucun bulletin trouvé</td></tr>
               )}
             </tbody>
           </table>
@@ -262,7 +472,24 @@ export default function Bulletins() {
         )}
       </div>
 
-      {(modal === 'add' || modal === 'edit') && <FormModal />}
+      {(modal === 'add' || modal === 'edit') && (
+        <FormModal
+          modal={modal}
+          form={form}
+          details={details}
+          adherents={adherents}
+          matchedAdherent={matchedAdherent}
+          sousAdherents={sousAdherents}
+          errors={errors}
+          onSubmit={handleSubmit}
+          onChange={handleFormChange}
+          onMatriculeChange={handleMatriculeChange}
+          onDetailChange={handleDetailChange}
+          onAddDetail={handleAddDetail}
+          onRemoveDetail={handleRemoveDetail}
+          onClose={closeModal}
+        />
+      )}
     </div>
   );
 }

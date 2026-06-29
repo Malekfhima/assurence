@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BulletinSoinRequest;
 use App\Models\BulletinSoin;
+use App\Models\BulletinSoinDetail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -12,7 +13,11 @@ class BulletinSoinController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = BulletinSoin::with('adherent:id_adherent,nom,prenom,matricule');
+        $query = BulletinSoin::with([
+            'adherent:id_adherent,nom,prenom,matricule',
+            'sousAdherent:id_sous_adherent,nom,prenom',
+            'details',
+        ]);
 
         // Recherche multicritère
         if ($search = $request->get('search')) {
@@ -52,18 +57,32 @@ class BulletinSoinController extends Controller
 
     public function store(BulletinSoinRequest $request): JsonResponse
     {
-        $bulletin = BulletinSoin::create($request->validated());
+        $data = $request->validated();
+        $detailsData = $data['details'] ?? [];
+        unset($data['details']);
+
+        // Calculer le montant total depuis les détails
+        $totalMontant = collect($detailsData)->sum('montant');
+        $data['montant_depense'] = $totalMontant;
+
+        $bulletin = BulletinSoin::create($data);
+
+        // Créer les détails
+        foreach ($detailsData as $detail) {
+            $detail['id_bulletin'] = $bulletin->id_bulletin;
+            BulletinSoinDetail::create($detail);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Bulletin de soin créé avec succès.',
-            'data' => $bulletin->load('adherent'),
+            'data' => $bulletin->load(['adherent', 'details']),
         ], 201);
     }
 
     public function show(int $id): JsonResponse
     {
-        $bulletin = BulletinSoin::with('adherent', 'bordereau')->find($id);
+        $bulletin = BulletinSoin::with(['adherent', 'bordereau', 'details'])->find($id);
 
         if (!$bulletin) {
             return response()->json([
@@ -89,12 +108,27 @@ class BulletinSoinController extends Controller
             ], 404);
         }
 
-        $bulletin->update($request->validated());
+        $data = $request->validated();
+        $detailsData = $data['details'] ?? [];
+        unset($data['details']);
+
+        // Calculer le montant total depuis les détails
+        $totalMontant = collect($detailsData)->sum('montant');
+        $data['montant_depense'] = $totalMontant;
+
+        $bulletin->update($data);
+
+        // Remplacer les détails
+        $bulletin->details()->delete();
+        foreach ($detailsData as $detail) {
+            $detail['id_bulletin'] = $bulletin->id_bulletin;
+            BulletinSoinDetail::create($detail);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Bulletin de soin modifié avec succès.',
-            'data' => $bulletin->load('adherent'),
+            'data' => $bulletin->load(['adherent', 'details']),
         ]);
     }
 
@@ -117,53 +151,5 @@ class BulletinSoinController extends Controller
         ]);
     }
 
-    // Actions spécifiques
-    public function valider(int $id): JsonResponse
-    {
-        $bulletin = BulletinSoin::find($id);
-
-        if (!$bulletin) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bulletin de soin introuvable.',
-            ], 404);
-        }
-
-        $bulletin->update(['etat' => 'Validé']);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Bulletin de soin validé.',
-            'data' => $bulletin,
-        ]);
-    }
-
-    public function rejeter(Request $request, int $id): JsonResponse
-    {
-        $bulletin = BulletinSoin::find($id);
-
-        if (!$bulletin) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bulletin de soin introuvable.',
-            ], 404);
-        }
-
-        $motif = $request->get('motif');
-        $description = $bulletin->description;
-        if ($motif) {
-            $description = trim($description ? $description . ' | Rejeté : ' . $motif : 'Rejeté : ' . $motif);
-        }
-
-        $bulletin->update([
-            'etat' => 'Rejeté',
-            'description' => $description,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Bulletin de soin rejeté.',
-            'data' => $bulletin,
-        ]);
-    }
 }
+
