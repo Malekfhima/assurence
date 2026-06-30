@@ -177,7 +177,7 @@ class BulletinSoinController extends Controller
         ]);
     }
 
-    public function downloadPdf(int $id)
+    public function downloadPdf(Request $request, int $id)
     {
         $bulletin = BulletinSoin::find($id);
 
@@ -196,10 +196,18 @@ class BulletinSoinController extends Controller
         }
 
         $fullPath = storage_path('app/public/' . $bulletin->pdf_path);
+        $filename = 'bulletin_' . $bulletin->numero_bulletin . '.pdf';
+
+        // Si ?download=1, forcer le téléchargement
+        if ($request->query('download') === '1') {
+            return response()->download($fullPath, $filename, [
+                'Content-Type' => 'application/pdf',
+            ]);
+        }
 
         return response()->file($fullPath, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . 'bulletin_' . $bulletin->numero_bulletin . '.pdf"',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
     }
 

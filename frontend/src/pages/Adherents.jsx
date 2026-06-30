@@ -323,9 +323,51 @@ export default function Adherents() {
         {meta.last_page > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
             <span className="text-xs text-gray-500">Page {meta.current_page} sur {meta.last_page}</span>
-            <div className="flex gap-2">
-              <button disabled={meta.current_page <= 1} onClick={() => fetchAdherents(meta.current_page - 1)} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition">Précédent</button>
-              <button disabled={meta.current_page >= meta.last_page} onClick={() => fetchAdherents(meta.current_page + 1)} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition">Suivant</button>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={meta.current_page <= 1}
+                onClick={() => fetchAdherents(meta.current_page - 1)}
+                className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              {(() => {
+                const pages = [];
+                const total = meta.last_page;
+                const current = meta.current_page;
+                const addPage = (p) => { if (!pages.includes(p) && p >= 1 && p <= total) pages.push(p); };
+                addPage(1);
+                if (current > 3) pages.push('...');
+                addPage(current - 1);
+                addPage(current);
+                addPage(current + 1);
+                if (current < total - 2) pages.push('...');
+                addPage(total);
+                return pages.map((p, i) =>
+                  p === '...' ? (
+                    <span key={`e-${i}`} className="px-1 text-xs text-gray-400 select-none">...</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => fetchAdherents(p)}
+                      className={`min-w-[28px] px-2 py-1.5 text-xs font-medium rounded-lg transition ${
+                        p === current
+                          ? 'bg-[#0F2942] text-white shadow-sm'
+                          : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                );
+              })()}
+              <button
+                disabled={meta.current_page >= meta.last_page}
+                onClick={() => fetchAdherents(meta.current_page + 1)}
+                className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
             </div>
           </div>
         )}

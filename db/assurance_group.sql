@@ -517,6 +517,7 @@ ALTER TABLE `bordereau`
 --
 ALTER TABLE `bulletin_soin`
   ADD PRIMARY KEY (`id_bulletin`),
+  ADD UNIQUE KEY `bulletin_soin_numero_bulletin_unique` (`numero_bulletin`),
   ADD KEY `id_adherent` (`id_adherent`),
   ADD KEY `id_sous_adherent` (`id_sous_adherent`);
 
