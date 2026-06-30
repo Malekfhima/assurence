@@ -22,22 +22,22 @@ function FormModal({ modal, form, errors, onSubmit, onChange, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Matricule <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.matricule} onChange={handleChange('matricule')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.matricule ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.matricule} onChange={handleChange('matricule')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.matricule ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 12345" />
               {errors.matricule && <p className="text-xs text-red-500 mt-1">{errors.matricule}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">CIN <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.cin} onChange={handleChange('cin')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.cin ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.cin} onChange={handleChange('cin')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.cin ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 12345678" />
               {errors.cin && <p className="text-xs text-red-500 mt-1">{errors.cin}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Nom <span className="text-red-500">*</span></label>
-              <input type="text" value={form.nom} onChange={handleChange('nom')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.nom ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" value={form.nom} onChange={handleChange('nom')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.nom ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : Dupont" />
               {errors.nom && <p className="text-xs text-red-500 mt-1">{errors.nom}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Prénom <span className="text-red-500">*</span></label>
-              <input type="text" value={form.prenom} onChange={handleChange('prenom')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.prenom ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" value={form.prenom} onChange={handleChange('prenom')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.prenom ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : Jean" />
               {errors.prenom && <p className="text-xs text-red-500 mt-1">{errors.prenom}</p>}
             </div>
             <div>
@@ -71,13 +71,13 @@ function FormModal({ modal, form, errors, onSubmit, onChange, onClose }) {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Adresse <span className="text-red-500">*</span></label>
-            <input type="text" value={form.adresse} onChange={handleChange('adresse')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.adresse ? 'border-red-400' : 'border-gray-300'}`} />
+            <input type="text" value={form.adresse} onChange={handleChange('adresse')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.adresse ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 123 Rue de la Liberté" />
             {errors.adresse && <p className="text-xs text-red-500 mt-1">{errors.adresse}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone <span className="text-red-500">*</span></label>
-              <input type="text" value={form.telephone} onChange={handleChange('telephone')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.telephone ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" value={form.telephone} onChange={handleChange('telephone')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.telephone ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 98765432" />
               {errors.telephone && <p className="text-xs text-red-500 mt-1">{errors.telephone}</p>}
             </div>
             <div>

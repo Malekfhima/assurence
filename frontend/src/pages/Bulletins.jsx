@@ -170,7 +170,7 @@ function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdher
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bulletin <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.numero_bulletin} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); onChange('numero_bulletin', val); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.numero_bulletin ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.numero_bulletin} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); onChange('numero_bulletin', val); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.numero_bulletin ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 12345" />
               {errors.numero_bulletin && <p className="text-xs text-red-500 mt-1">{errors.numero_bulletin}</p>}
             </div>
           </div>

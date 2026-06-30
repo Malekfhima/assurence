@@ -624,22 +624,22 @@ export default function AdherentDetails() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Matricule <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={infoForm.matricule || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setInfoForm({...infoForm, matricule: val}); setInfoErrors({...infoErrors, matricule: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.matricule ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={infoForm.matricule || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setInfoForm({...infoForm, matricule: val}); setInfoErrors({...infoErrors, matricule: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.matricule ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 12345" />
               {infoErrors.matricule && <p className="text-xs text-red-500 mt-1">{infoErrors.matricule}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">CIN <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={infoForm.cin || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setInfoForm({...infoForm, cin: val}); setInfoErrors({...infoErrors, cin: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.cin ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={infoForm.cin || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setInfoForm({...infoForm, cin: val}); setInfoErrors({...infoErrors, cin: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.cin ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 12345678" />
               {infoErrors.cin && <p className="text-xs text-red-500 mt-1">{infoErrors.cin}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Nom <span className="text-red-500">*</span></label>
-              <input type="text" value={infoForm.nom || ''} onChange={(e) => { setInfoForm({...infoForm, nom: e.target.value}); setInfoErrors({...infoErrors, nom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.nom ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" value={infoForm.nom || ''} onChange={(e) => { setInfoForm({...infoForm, nom: e.target.value}); setInfoErrors({...infoErrors, nom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.nom ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : Dupont" />
               {infoErrors.nom && <p className="text-xs text-red-500 mt-1">{infoErrors.nom}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Prénom <span className="text-red-500">*</span></label>
-              <input type="text" value={infoForm.prenom || ''} onChange={(e) => { setInfoForm({...infoForm, prenom: e.target.value}); setInfoErrors({...infoErrors, prenom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.prenom ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" value={infoForm.prenom || ''} onChange={(e) => { setInfoForm({...infoForm, prenom: e.target.value}); setInfoErrors({...infoErrors, prenom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.prenom ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : Jean" />
               {infoErrors.prenom && <p className="text-xs text-red-500 mt-1">{infoErrors.prenom}</p>}
             </div>
             <div>
@@ -675,13 +675,13 @@ export default function AdherentDetails() {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Adresse <span className="text-red-500">*</span></label>
-            <input type="text" value={infoForm.adresse || ''} onChange={(e) => { setInfoForm({...infoForm, adresse: e.target.value}); setInfoErrors({...infoErrors, adresse: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.adresse ? 'border-red-400' : 'border-gray-300'}`} />
+            <input type="text" value={infoForm.adresse || ''} onChange={(e) => { setInfoForm({...infoForm, adresse: e.target.value}); setInfoErrors({...infoErrors, adresse: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.adresse ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 123 Rue de la Liberté" />
             {infoErrors.adresse && <p className="text-xs text-red-500 mt-1">{infoErrors.adresse}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone <span className="text-red-500">*</span></label>
-              <input type="text" value={infoForm.telephone || ''} onChange={(e) => { setInfoForm({...infoForm, telephone: e.target.value}); setInfoErrors({...infoErrors, telephone: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.telephone ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" value={infoForm.telephone || ''} onChange={(e) => { setInfoForm({...infoForm, telephone: e.target.value}); setInfoErrors({...infoErrors, telephone: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${infoErrors.telephone ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 98765432" />
               {infoErrors.telephone && <p className="text-xs text-red-500 mt-1">{infoErrors.telephone}</p>}
             </div>
             <div>
@@ -706,12 +706,12 @@ export default function AdherentDetails() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Nom <span className="text-red-500">*</span></label>
-              <input type="text" value={sousForm.nom || ''} onChange={(e) => { setSousForm({...sousForm, nom: e.target.value}); setSousErrors({...sousErrors, nom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${sousErrors.nom ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" value={sousForm.nom || ''} onChange={(e) => { setSousForm({...sousForm, nom: e.target.value}); setSousErrors({...sousErrors, nom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${sousErrors.nom ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : Dupont" />
               {sousErrors.nom && <p className="text-xs text-red-500 mt-1">{sousErrors.nom}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Prénom <span className="text-red-500">*</span></label>
-              <input type="text" value={sousForm.prenom || ''} onChange={(e) => { setSousForm({...sousForm, prenom: e.target.value}); setSousErrors({...sousErrors, prenom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${sousErrors.prenom ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" value={sousForm.prenom || ''} onChange={(e) => { setSousForm({...sousForm, prenom: e.target.value}); setSousErrors({...sousErrors, prenom: ''}); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${sousErrors.prenom ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : Jean" />
               {sousErrors.prenom && <p className="text-xs text-red-500 mt-1">{sousErrors.prenom}</p>}
             </div>
             <div>
@@ -748,25 +748,24 @@ export default function AdherentDetails() {
       {/* Bulletin Form Modal */}
       <Modal open={bulletinModal === 'add' || bulletinModal === 'edit'} onClose={() => setBulletinModal(null)} title={bulletinModal === 'add' ? 'Ajouter un bulletin de soin' : 'Modifier le bulletin de soin'}>
         <form onSubmit={handleBulletinSubmit} className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bulletin</label>               <input type="text" inputMode="numeric" pattern="[0-9]*" value={bulletinForm.numero_bulletin || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setBulletinForm({...bulletinForm, numero_bulletin: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+          <div className="grid grid-cols-2 gap-4">              <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bulletin</label>               <input type="text" inputMode="numeric" pattern="[0-9]*" value={bulletinForm.numero_bulletin || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setBulletinForm({...bulletinForm, numero_bulletin: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex : 12345" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Date soin</label>
               <input type="date" value={bulletinForm.date_soin || ''} onChange={(e) => setBulletinForm({...bulletinForm, date_soin: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Montant (DT)</label>               <input type="text" inputMode="decimal" value={bulletinForm.montant_depense || ''} onChange={(e) => { let val = e.target.value.replace(/[^0-9.,]/g, ''); val = val.replace(',', '.'); setBulletinForm({...bulletinForm, montant_depense: val}); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Montant (DT)</label>               <input type="text" inputMode="decimal" value={bulletinForm.montant_depense || ''} onChange={(e) => { let val = e.target.value.replace(/[^0-9.,]/g, ''); val = val.replace(',', '.'); setBulletinForm({...bulletinForm, montant_depense: val}); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex : 500.00" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Type de soin</label>
-              <input type="text" value={bulletinForm.type_soin || ''} onChange={(e) => setBulletinForm({...bulletinForm, type_soin: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <input type="text" value={bulletinForm.type_soin || ''} onChange={(e) => setBulletinForm({...bulletinForm, type_soin: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex : Consultation" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
-            <textarea value={bulletinForm.description || ''} onChange={(e) => setBulletinForm({...bulletinForm, description: e.target.value})} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            <textarea value={bulletinForm.description || ''} onChange={(e) => setBulletinForm({...bulletinForm, description: e.target.value})} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Description du soin..." />
           </div>
           <div className="pt-2 flex justify-end gap-3">
             <button type="button" onClick={() => setBulletinModal(null)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">Annuler</button>
@@ -789,7 +788,7 @@ export default function AdherentDetails() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bordereau</label>               <input type="text" inputMode="numeric" pattern="[0-9]*" value={bordereauForm.numero_bordereau || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setBordereauForm({...bordereauForm, numero_bordereau: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bordereau</label>               <input type="text" inputMode="numeric" pattern="[0-9]*" value={bordereauForm.numero_bordereau || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setBordereauForm({...bordereauForm, numero_bordereau: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex : 12345" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Date envoi</label>
@@ -806,7 +805,7 @@ export default function AdherentDetails() {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Commentaire</label>
-            <textarea value={bordereauForm.commentaire || ''} onChange={(e) => setBordereauForm({...bordereauForm, commentaire: e.target.value})} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            <textarea value={bordereauForm.commentaire || ''} onChange={(e) => setBordereauForm({...bordereauForm, commentaire: e.target.value})} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Votre commentaire..." />
           </div>
           <div className="pt-2 flex justify-end gap-3">
             <button type="button" onClick={() => setBordereauModal(null)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">Annuler</button>
