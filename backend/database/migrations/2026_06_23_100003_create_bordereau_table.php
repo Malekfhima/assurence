@@ -8,6 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('bordereau')) {
+            return;
+        }
         Schema::create('bordereau', function (Blueprint $table) {
             $table->integer('id_bordereau', true);
             $table->integer('id_bulletin');

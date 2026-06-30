@@ -8,16 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('bulletin_soin_detail')) {
+        if (Schema::hasTable('soin')) {
             return;
         }
-        Schema::create('bulletin_soin_detail', function (Blueprint $table) {
-            $table->integer('id_detail', true);
+        Schema::create('soin', function (Blueprint $table) {
+            $table->integer('id_soin', true);
             $table->integer('id_bulletin');
-            $table->date('date')->nullable();
-            $table->decimal('montant', 10, 2)->default(0);
-            $table->boolean('ordonnance')->default(false);
-            $table->string('type_soin', 100)->nullable();
+            $table->date('date_soin');
+            $table->string('type_soin', 100);
+            $table->decimal('montant', 10, 2);
 
             $table->foreign('id_bulletin')
                   ->references('id_bulletin')
@@ -28,6 +27,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('bulletin_soin_detail');
+        Schema::dropIfExists('soin');
     }
 };

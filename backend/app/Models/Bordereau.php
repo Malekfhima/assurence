@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Bordereau extends Model
 {
@@ -12,11 +12,15 @@ class Bordereau extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'id_bulletin', 'numero_bordereau', 'date_envoi', 'statut', 'commentaire',
+        'numero_bordereau', 'montant_total', 'date_envoi', 'statut', 'commentaire',
     ];
 
-    public function bulletinSoin(): BelongsTo
+    protected $casts = [
+        'montant_total' => 'decimal:2',
+    ];
+
+    public function bulletinSoins(): HasMany
     {
-        return $this->belongsTo(BulletinSoin::class, 'id_bulletin', 'id_bulletin');
+        return $this->hasMany(BulletinSoin::class, 'id_bordereau', 'id_bordereau');
     }
 }

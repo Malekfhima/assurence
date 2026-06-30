@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BordereauRequest;
 use App\Models\Bordereau;
+use App\Models\BulletinSoin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -12,11 +13,11 @@ class BordereauController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Bordereau::with('bulletinSoin.adherent:id_adherent,nom,prenom,matricule');
+        $query = Bordereau::with(['bulletinSoins.adherent:id_adherent,nom,prenom,matricule', 'bulletinSoins.details']);
 
-        // Filtre par adhérent (via le bulletin de soin lié)
+        // Filtre par adhérent (via les bulletins de soin liés)
         if ($idAdherent = $request->get('id_adherent')) {
-            $query->whereHas('bulletinSoin', function ($q) use ($idAdherent) {
+            $query->whereHas('bulletinSoins', function ($q) use ($idAdherent) {
                 $q->where('id_adherent', $idAdherent);
             });
         }
@@ -37,18 +38,30 @@ class BordereauController extends Controller
 
     public function store(BordereauRequest $request): JsonResponse
     {
-        $bordereau = Bordereau::create($request->validated());
+        $data = $request->validated();
+        $idBulletins = $data['id_bulletins'];
+        unset($data['id_bulletins']);
+
+        $bordereau = Bordereau::create($data);
+
+        // Associer les bulletins sélectionnés au bordereau
+        BulletinSoin::whereIn('id_bulletin', $idBulletins)
+                    ->update(['id_bordereau' => $bordereau->id_bordereau]);
+
+        // Calculer le montant total à partir des bulletins associés
+        $montantTotal = BulletinSoin::whereIn('id_bulletin', $idBulletins)->sum('montant_depense');
+        $bordereau->update(['montant_total' => $montantTotal]);
 
         return response()->json([
             'success' => true,
             'message' => 'Bordereau créé avec succès.',
-            'data' => $bordereau->load('bulletinSoin.adherent'),
+            'data' => $bordereau->load(['bulletinSoins.adherent', 'bulletinSoins.details']),
         ], 201);
     }
 
     public function show(int $id): JsonResponse
     {
-        $bordereau = Bordereau::with('bulletinSoin.adherent')->find($id);
+        $bordereau = Bordereau::with(['bulletinSoins.adherent', 'bulletinSoins.details'])->find($id);
 
         if (!$bordereau) {
             return response()->json([
@@ -74,12 +87,33 @@ class BordereauController extends Controller
             ], 404);
         }
 
-        $bordereau->update($request->validated());
+        $data = $request->validated();
+        $idBulletins = $data['id_bulletins'] ?? [];
+        unset($data['id_bulletins']);
+
+        $bordereau->update($data);
+
+        // Dissocier les anciens bulletins
+        BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
+                    ->update(['id_bordereau' => null]);
+
+        // Associer les nouveaux bulletins
+        if (!empty($idBulletins)) {
+            BulletinSoin::whereIn('id_bulletin', $idBulletins)
+                        ->update(['id_bordereau' => $bordereau->id_bordereau]);
+
+            // Recalculer le montant total
+            $montantTotal = BulletinSoin::whereIn('id_bulletin', $idBulletins)->sum('montant_depense');
+        } else {
+            $montantTotal = 0;
+        }
+
+        $bordereau->update(['montant_total' => $montantTotal]);
 
         return response()->json([
             'success' => true,
             'message' => 'Bordereau modifié avec succès.',
-            'data' => $bordereau->load('bulletinSoin.adherent'),
+            'data' => $bordereau->load(['bulletinSoins.adherent', 'bulletinSoins.details']),
         ]);
     }
 
@@ -93,6 +127,10 @@ class BordereauController extends Controller
                 'message' => 'Bordereau introuvable.',
             ], 404);
         }
+
+        // Dissocier les bulletins liés
+        BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
+                    ->update(['id_bordereau' => null]);
 
         $bordereau->delete();
 

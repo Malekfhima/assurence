@@ -279,14 +279,17 @@ export default function AdherentDetails() {
 
 
   // --- Bordereaux CRUD ---
+  const [bordereauSelectedBulletins, setBordereauSelectedBulletins] = useState([]);
+
   const openBordereauModal = (type, bordereau = null) => {
     if (type === 'edit' && bordereau) {
       setBordereauSelected(bordereau);
-      setBordereauForm({ ...bordereau });
+      setBordereauForm({ numero_bordereau: bordereau.numero_bordereau || '', date_envoi: bordereau.date_envoi || '', statut: bordereau.statut || 'En attente', commentaire: bordereau.commentaire || '' });
     } else {
       setBordereauSelected(null);
-      setBordereauForm({ id_bulletin: '', numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
+      setBordereauForm({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
     }
+    setBordereauSelectedBulletins([]);
     setBordereauModal(type);
   };
 
@@ -294,10 +297,16 @@ export default function AdherentDetails() {
     e.preventDefault();
     try {
       if (bordereauModal === 'add') {
-        await api.post('/bordereaux', bordereauForm);
+        if (bordereauSelectedBulletins.length === 0) {
+          showNotif('Veuillez sélectionner au moins un bulletin.', 'error');
+          return;
+        }
+        await api.post('/bordereaux', { ...bordereauForm, id_bulletins: bordereauSelectedBulletins });
         showNotif('Bordereau créé avec succès.');
       } else {
-        await api.put(`/bordereaux/${bordereauSelected.id_bordereau}`, bordereauForm);
+        const currentBulletins = bordereauSelected?.bulletinSoins || bordereauSelected?.bulletin_soins || [];
+        const bulletinIds = currentBulletins.map(b => b.id_bulletin);
+        await api.put(`/bordereaux/${bordereauSelected.id_bordereau}`, { ...bordereauForm, id_bulletins: bulletinIds });
         showNotif('Bordereau modifié avec succès.');
       }
       setBordereauModal(null);
@@ -575,8 +584,8 @@ export default function AdherentDetails() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">N° Bordereau</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Bulletin lié</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">N° Bordereau</th>                      <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Bulletins liés</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Montant total</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Date envoi</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Statut</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Commentaire</th>
@@ -586,8 +595,22 @@ export default function AdherentDetails() {
               <tbody className="divide-y divide-gray-100">
                 {bordereaux.map((b) => (
                   <tr key={b.id_bordereau} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3 font-medium text-gray-900">{b.numero_bordereau}</td>
-                    <td className="px-4 py-3 text-gray-500">N°{b.bulletin_soin?.numero_bulletin || '-'}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900">{b.numero_bordereau}</td>                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {(b.bulletinSoins || b.bulletin_soins || []).slice(0, 3).map(bs => (
+                            <span key={bs.id_bulletin} className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                              N°{bs.numero_bulletin}
+                            </span>
+                          ))}
+                          {(b.bulletinSoins || b.bulletin_soins || []).length > 3 && (
+                            <span className="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">
+                              +{(b.bulletinSoins || b.bulletin_soins || []).length - 3}
+                            </span>
+                          )}
+                          {(b.bulletinSoins || b.bulletin_soins || []).length === 0 && <span className="text-gray-400 text-xs">-</span>}
+                        </div>
+                      </td>
+                    <td className="px-4 py-3 text-gray-900 font-semibold">{Number(b.montant_total || 0).toLocaleString('fr-TN')} DT</td>
                     <td className="px-4 py-3 text-gray-500">{b.date_envoi || '-'}</td>
                     <td className="px-4 py-3"><span className={statutBordereauBadge(b.statut)}>{b.statut || 'En attente'}</span></td>
                     <td className="px-4 py-3 text-gray-500 max-w-[200px] truncate">{b.commentaire || '-'}</td>
@@ -608,7 +631,7 @@ export default function AdherentDetails() {
                   </tr>
                 ))}
                 {bordereaux.length === 0 && (
-                  <tr><td colSpan={6} className="text-center py-8 text-gray-500">Aucun bordereau</td></tr>
+                  <tr><td colSpan={7} className="text-center py-8 text-gray-500">Aucun bordereau</td></tr>
                 )}
               </tbody>
             </table>
@@ -777,42 +800,87 @@ export default function AdherentDetails() {
 
       {/* Bordereau Form Modal */}
       <Modal open={bordereauModal === 'add' || bordereauModal === 'edit'} onClose={() => setBordereauModal(null)} title={bordereauModal === 'add' ? 'Créer un bordereau' : 'Modifier le bordereau'}>
-        <form onSubmit={handleBordereauSubmit} className="p-5 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Bulletin de soin lié</label>
-            <select value={bordereauForm.id_bulletin || ''} onChange={(e) => setBordereauForm({...bordereauForm, id_bulletin: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-              <option value="">Sélectionner un bulletin</option>
-              {bulletins.map((b) => (
-                <option key={b.id_bulletin} value={b.id_bulletin}>N°{b.numero_bulletin} - {b.type_soin || 'Soin'} ({Number(b.montant_depense || 0).toLocaleString('fr-TN')} DT)</option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+        <div className="p-5 space-y-4">
+          {/* Pour la création : sélection des bulletins */}
+          {bordereauModal === 'add' && (
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bordereau</label>               <input type="text" inputMode="numeric" pattern="[0-9]*" value={bordereauForm.numero_bordereau || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setBordereauForm({...bordereauForm, numero_bordereau: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-2">Sélectionner les bulletins à regrouper</label>
+              <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                {bulletins
+                  .filter(b => !b.id_bordereau)
+                  .map(b => (
+                    <label key={b.id_bulletin} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        checked={bordereauSelectedBulletins.includes(b.id_bulletin)}
+                        onChange={() => {
+                          setBordereauSelectedBulletins(prev =>
+                            prev.includes(b.id_bulletin)
+                              ? prev.filter(id => id !== b.id_bulletin)
+                              : [...prev, b.id_bulletin]
+                          );
+                        }}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="font-medium text-gray-800">N°{b.numero_bulletin}</span>
+                      <span className="text-gray-500">{b.adherent?.nom} {b.adherent?.prenom}</span>
+                      <span className="ml-auto text-gray-700">{Number(b.montant_depense || 0).toLocaleString('fr-TN')} DT</span>
+                    </label>
+                  ))}
+                {bulletins.filter(b => !b.id_bordereau).length === 0 && (
+                  <p className="text-center py-6 text-gray-400 text-sm">Tous les bulletins sont déjà liés à un bordereau.</p>
+                )}
+              </div>
+              {bordereauSelectedBulletins.length > 0 && (
+                <p className="text-xs text-gray-500 mt-1">{bordereauSelectedBulletins.length} bulletin(s) sélectionné(s)</p>
+              )}
+            </div>
+          )}
+
+          {/* Pour l'édition : afficher les bulletins déjà liés */}
+          {bordereauModal === 'edit' && (
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs font-medium text-gray-600 mb-2">Bulletins liés :</p>
+              <div className="space-y-1">
+                {(bordereauSelected?.bulletinSoins || bordereauSelected?.bulletin_soins || []).map(bs => (
+                  <div key={bs.id_bulletin} className="flex items-center gap-2 text-sm text-gray-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+                    N°{bs.numero_bulletin} - {bs.adherent?.nom} {bs.adherent?.prenom}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleBordereauSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bordereau <span className="text-red-500">*</span></label>
+                <input type="text" inputMode="numeric" pattern="[0-9]*" value={bordereauForm.numero_bordereau || ''} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setBordereauForm({...bordereauForm, numero_bordereau: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Date envoi</label>
+                <input type="date" value={bordereauForm.date_envoi || ''} onChange={(e) => setBordereauForm({...bordereauForm, date_envoi: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Date envoi</label>
-              <input type="date" value={bordereauForm.date_envoi || ''} onChange={(e) => setBordereauForm({...bordereauForm, date_envoi: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Statut</label>
+              <select value={bordereauForm.statut || 'En attente'} onChange={(e) => setBordereauForm({...bordereauForm, statut: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="En attente">En attente</option>
+                <option value="Envoyé">Envoyé</option>
+                <option value="Traité">Traité</option>
+              </select>
             </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Statut</label>
-            <select value={bordereauForm.statut || 'En attente'} onChange={(e) => setBordereauForm({...bordereauForm, statut: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-              <option value="En attente">En attente</option>
-              <option value="Envoyé">Envoyé</option>
-              <option value="Traité">Traité</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Commentaire</label>
-            <textarea value={bordereauForm.commentaire || ''} onChange={(e) => setBordereauForm({...bordereauForm, commentaire: e.target.value})} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
-          </div>
-          <div className="pt-2 flex justify-end gap-3">
-            <button type="button" onClick={() => setBordereauModal(null)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">Annuler</button>
-            <button type="submit" className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition">Enregistrer</button>
-          </div>
-        </form>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Commentaire</label>
+              <textarea value={bordereauForm.commentaire || ''} onChange={(e) => setBordereauForm({...bordereauForm, commentaire: e.target.value})} rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div className="pt-2 flex justify-end gap-3">
+              <button type="button" onClick={() => setBordereauModal(null)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">Annuler</button>
+              <button type="submit" className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition">Enregistrer</button>
+            </div>
+          </form>
+        </div>
       </Modal>
 
       {/* View Bulletin Details Modal */}

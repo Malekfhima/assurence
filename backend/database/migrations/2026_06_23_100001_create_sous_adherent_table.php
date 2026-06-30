@@ -8,6 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('sous_adherent')) {
+            return;
+        }
         Schema::create('sous_adherent', function (Blueprint $table) {
             $table->integer('id_sous_adherent', true);
             $table->integer('id_adherent');
