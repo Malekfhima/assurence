@@ -229,7 +229,8 @@ CREATE TABLE `bulletin_soin` (
   `montant_depense` decimal(10,2) DEFAULT NULL,
   `type_soin` varchar(100) DEFAULT NULL,
   `description` varchar(255) DEFAULT NULL,
-  `etat` varchar(50) DEFAULT 'En attente'
+  `etat` varchar(50) DEFAULT 'En attente',
+  `pdf_path` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -243,7 +244,6 @@ CREATE TABLE `bulletin_soin_detail` (
   `id_bulletin` int(11) NOT NULL,
   `date` date DEFAULT NULL,
   `montant` decimal(10,2) DEFAULT 0.00,
-  `ordonnance` tinyint(1) DEFAULT 0,
   `type_soin` varchar(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

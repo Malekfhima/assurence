@@ -28,7 +28,6 @@ class BulletinSoinRequest extends FormRequest
             'details' => 'nullable|array',
             'details.*.date' => 'nullable|date',
             'details.*.montant' => 'nullable|numeric|min:0',
-            'details.*.ordonnance' => 'nullable|boolean',
             'details.*.type_soin' => 'nullable|string|max:100',
             'pdf' => 'nullable|file|mimes:pdf|max:10240',
         ];

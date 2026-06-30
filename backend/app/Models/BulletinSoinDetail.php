@@ -13,7 +13,7 @@ class BulletinSoinDetail extends Model
 
     protected $fillable = [
         'id_bulletin', 'date', 'montant',
-        'ordonnance', 'type_soin',
+        'type_soin',
     ];
 
     protected function casts(): array
@@ -21,7 +21,6 @@ class BulletinSoinDetail extends Model
         return [
             'date' => 'date:Y-m-d',
             'montant' => 'decimal:2',
-            'ordonnance' => 'boolean',
         ];
     }
 

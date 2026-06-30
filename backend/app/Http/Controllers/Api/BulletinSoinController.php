@@ -195,8 +195,14 @@ class BulletinSoinController extends Controller
             ], 404);
         }
 
-        return Storage::disk('public')->download($bulletin->pdf_path, 'bulletin_' . $bulletin->numero_bulletin . '.pdf');
+        $fullPath = storage_path('app/public/' . $bulletin->pdf_path);
+
+        return response()->file($fullPath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . 'bulletin_' . $bulletin->numero_bulletin . '.pdf"',
+        ]);
     }
 
 }
+
 

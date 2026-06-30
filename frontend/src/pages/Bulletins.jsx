@@ -18,14 +18,14 @@ function emptyDetail() {
   return {
     date: '',
     montant: '',
-    ordonnance: false,
     type_soin: '',
   };
 }
 
-function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdherents, errors, onSubmit, onChange, onMatriculeChange, onDetailChange, onAddDetail, onRemoveDetail, onClose }) {
+function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdherents, errors, pdfFile, existingPdf, onSubmit, onChange, onMatriculeChange, onDetailChange, onAddDetail, onRemoveDetail, onPdfChange, onRemovePdf, onClose }) {
   const selectedAdherent = matchedAdherent || adherents.find((a) => a.id_adherent === Number(form.id_adherent));
   const totalMontant = details.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+  const pdfInputRef = useRef(null);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -96,7 +96,6 @@ function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdher
                   <tr>
                     <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase w-28">Date</th>
                     <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase">Montant</th>
-                    <th className="text-center px-3 py-2 font-medium text-gray-600 text-xs uppercase w-24">Ordonnance</th>
                     <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase w-36">Type de soin</th>
                     <th className="text-center px-3 py-2 font-medium text-gray-600 text-xs uppercase w-10"></th>
                   </tr>
@@ -109,12 +108,6 @@ function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdher
                       </td>
                       <td className="px-3 py-1.5">
                         <input type="text" inputMode="decimal" value={d.montant} onChange={(e) => { let val = e.target.value.replace(/[^0-9.,]/g, ''); val = val.replace(',', '.'); onDetailChange(i, 'montant', val); }} placeholder="Montant" className="w-full max-w-[120px] px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none text-right" />
-                      </td>
-                      <td className="px-3 py-1.5 text-center">
-                        <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                          <input type="checkbox" checked={d.ordonnance} onChange={(e) => onDetailChange(i, 'ordonnance', e.target.checked)} className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                          <span className="text-xs text-gray-600">{d.ordonnance ? 'Oui' : 'Non'}</span>
-                        </label>
                       </td>
                       <td className="px-3 py-1.5">
                         <select value={d.type_soin} onChange={(e) => onDetailChange(i, 'type_soin', e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none">
@@ -133,18 +126,68 @@ function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdher
                   ))}
                   {details.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="text-center py-6 text-gray-400 text-xs">Aucune ligne. Cliquez sur "Ajouter une ligne" pour commencer.</td>
+                      <td colSpan={4} className="text-center py-6 text-gray-400 text-xs">Aucune ligne. Cliquez sur "Ajouter une ligne" pour commencer.</td>
                     </tr>
                   )}
                 </tbody>
                 <tfoot className="bg-gray-50 border-t border-gray-200">
                   <tr>
-                    <td colSpan={4} className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Montant total</td>
+                    <td colSpan={3} className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Montant total</td>
                     <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
+          </div>
+
+          {/* Upload PDF - Bulletin scanné */}
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-2">Bulletin scanné (PDF)</label>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => pdfInputRef.current?.click()}
+                className="px-3 py-2 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center gap-2"
+              >
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                {pdfFile ? pdfFile.name : existingPdf ? 'Remplacer le PDF' : 'Choisir un fichier PDF'}
+              </button>
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={onPdfChange}
+                className="hidden"
+              />
+              {pdfFile && (
+                <div className="flex items-center gap-2 text-xs">
+                  <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-gray-700 truncate max-w-[200px]">{pdfFile.name}</span>
+                  <span className="text-gray-400">({(pdfFile.size / 1024).toFixed(0)} Ko)</span>
+                  <button type="button" onClick={onRemovePdf} className="p-1 text-gray-400 hover:text-red-600 rounded" title="Retirer">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              )}
+              {!pdfFile && existingPdf && (
+                <a
+                  href={`/api/bulletins/${form.id_bulletin}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 underline"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Voir le PDF actuel
+                </a>
+              )}
+            </div>
+            {errors.pdf && <p className="text-xs text-red-500 mt-1">{errors.pdf}</p>}
           </div>
 
           {/* Boutons */}
@@ -169,6 +212,7 @@ export default function Bulletins() {
   const [adherents, setAdherents] = useState([]);
   const [matchedAdherent, setMatchedAdherent] = useState(null);
   const [sousAdherents, setSousAdherents] = useState([]);
+  const [pdfFile, setPdfFile] = useState(null);
   const [form, setForm] = useState({ id_adherent: '', id_sous_adherent: '', numero_bulletin: '', etat: 'En attente', matricule_saisi: '' });
   const [details, setDetails] = useState([]);
   const [errors, setErrors] = useState({});
@@ -249,6 +293,7 @@ export default function Bulletins() {
     if (type === 'edit' && bulletin) {
       setSelected(bulletin);
       setMatchedAdherent(null);
+      setPdfFile(null);
       const editAdherent = adherents.find((a) => a.id_adherent === Number(bulletin.id_adherent));
       setForm({
         id_adherent: bulletin.id_adherent,
@@ -256,18 +301,18 @@ export default function Bulletins() {
         numero_bulletin: bulletin.numero_bulletin,
         etat: bulletin.etat || 'En attente',
         matricule_saisi: editAdherent?.matricule || '',
-
+        id_bulletin: bulletin.id_bulletin,
       });
       setDetails((bulletin.details || []).map((d) => ({
         ...d,
         montant: d.montant !== null && d.montant !== undefined ? String(d.montant) : '',
-        ordonnance: Boolean(d.ordonnance),
       })));
       const adherent = adherents.find((a) => a.id_adherent === Number(bulletin.id_adherent));
       setSousAdherents(adherent?.sous_adherents || []);
     } else {
       setSelected(null);
       setMatchedAdherent(null);
+      setPdfFile(null);
       setForm({ id_adherent: '', id_sous_adherent: '', numero_bulletin: '', etat: 'En attente', matricule_saisi: '' });
       setSousAdherents([]);
       setDetails([emptyDetail()]);
@@ -329,6 +374,26 @@ export default function Bulletins() {
     setDetails((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handlePdfChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        setErrors((prev) => ({ ...prev, pdf: 'Seuls les fichiers PDF sont acceptés.' }));
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setErrors((prev) => ({ ...prev, pdf: 'Le fichier ne doit pas dépasser 10 Mo.' }));
+        return;
+      }
+      setPdfFile(file);
+      setErrors((prev) => ({ ...prev, pdf: '' }));
+    }
+  };
+
+  const handleRemovePdf = () => {
+    setPdfFile(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     // Filtrer les lignes vides et normaliser les montants
@@ -337,18 +402,50 @@ export default function Bulletins() {
       .map((d) => ({
         ...d,
         montant: d.montant === '' || d.montant === undefined || d.montant === null ? '0' : d.montant,
-        ordonnance: d.ordonnance ? 1 : 0,
       }));
-    const payload = { ...form, details: validDetails };
+
     try {
+      let payload;
+
+      if (pdfFile) {
+        // Utiliser FormData quand il y a un fichier PDF
+        const formData = new FormData();
+        formData.append('id_adherent', form.id_adherent);
+        formData.append('id_sous_adherent', form.id_sous_adherent || '');
+        formData.append('numero_bulletin', form.numero_bulletin);
+        formData.append('etat', form.etat || 'En attente');
+        formData.append('pdf', pdfFile);
+
+        validDetails.forEach((detail, index) => {
+          formData.append(`details[${index}][date]`, detail.date || '');
+          formData.append(`details[${index}][montant]`, detail.montant);
+          formData.append(`details[${index}][type_soin]`, detail.type_soin || '');
+        });
+
+        if (modal === 'edit' && selected) {
+          formData.append('_method', 'PUT');
+        }
+
+        payload = formData;
+      } else {
+        // Envoyer en JSON si pas de fichier
+        payload = { ...form, details: validDetails };
+      }
+
       if (modal === 'add') {
         await api.post('/bulletins', payload);
         showNotif('Bulletin créé avec succès.');
       } else {
-        await api.put(`/bulletins/${selected.id_bulletin}`, payload);
+        if (!pdfFile) {
+          await api.put(`/bulletins/${selected.id_bulletin}`, payload);
+        } else {
+          // POST avec _method: PUT pour les uploads de fichiers
+          await api.post(`/bulletins/${selected.id_bulletin}`, payload);
+        }
         showNotif('Bulletin modifié avec succès.');
       }
       setModal(null);
+      setPdfFile(null);
       fetchBulletins(meta.current_page);
     } catch (err) {
       const serverErrors = err.response?.data?.errors;
@@ -428,6 +525,7 @@ export default function Bulletins() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Montant</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Type</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">État</th>
+                <th className="text-center px-4 py-3 font-medium text-gray-600 text-xs uppercase w-16">PDF</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600 text-xs uppercase">Actions</th>
               </tr>
             </thead>
@@ -443,6 +541,27 @@ export default function Bulletins() {
                   <td className="px-4 py-3 text-gray-900 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN')} DT</td>
                   <td className="px-4 py-3 text-gray-500">{b.type_soin || '-'}</td>
                   <td className="px-4 py-3"><span className={etatBadge(b.etat)}>{b.etat}</span></td>
+                  <td className="px-4 py-3 text-center">
+                    {b.pdf_path ? (
+                      <a
+                        href={`/api/bulletins/${b.id_bulletin}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                        title="Télécharger le PDF"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                      </a>
+                    ) : (
+                      <span className="text-gray-300">
+                        <svg className="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => openModal('edit', b)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Modifier">
@@ -456,7 +575,7 @@ export default function Bulletins() {
                 </tr>
               ))}
               {!loading && bulletins.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-8 text-gray-500">Aucun bulletin trouvé</td></tr>
+                <tr><td colSpan={9} className="text-center py-8 text-gray-500">Aucun bulletin trouvé</td></tr>
               )}
             </tbody>
           </table>
@@ -481,12 +600,16 @@ export default function Bulletins() {
           matchedAdherent={matchedAdherent}
           sousAdherents={sousAdherents}
           errors={errors}
+          pdfFile={pdfFile}
+          existingPdf={selected?.pdf_path || null}
           onSubmit={handleSubmit}
           onChange={handleFormChange}
           onMatriculeChange={handleMatriculeChange}
           onDetailChange={handleDetailChange}
           onAddDetail={handleAddDetail}
           onRemoveDetail={handleRemoveDetail}
+          onPdfChange={handlePdfChange}
+          onRemovePdf={handleRemovePdf}
           onClose={closeModal}
         />
       )}
