@@ -30,6 +30,7 @@ class BulletinSoinRequest extends FormRequest
             'details.*.montant' => 'nullable|numeric|min:0',
             'details.*.ordonnance' => 'nullable|boolean',
             'details.*.type_soin' => 'nullable|string|max:100',
+            'pdf' => 'nullable|file|mimes:pdf|max:10240',
         ];
 
         // Unicité : un adhérent ne peut avoir qu'un seul bulletin

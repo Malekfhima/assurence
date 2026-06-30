@@ -15,7 +15,7 @@ class BulletinSoin extends Model
 
     protected $fillable = [
         'id_adherent', 'id_sous_adherent', 'numero_bordereau', 'numero_bulletin',
-        'date_soin', 'montant_depense', 'type_soin', 'description', 'etat',
+        'date_soin', 'montant_depense', 'type_soin', 'description', 'etat', 'pdf_path',
     ];
 
     public function adherent(): BelongsTo

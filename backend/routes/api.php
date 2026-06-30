@@ -41,6 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/bulletins/{id}', [BulletinSoinController::class, 'show']);
     Route::put('/bulletins/{id}', [BulletinSoinController::class, 'update']);
     Route::delete('/bulletins/{id}', [BulletinSoinController::class, 'destroy']);
+    Route::get('/bulletins/{id}/pdf', [BulletinSoinController::class, 'downloadPdf']);
 
 
     // --- CRUD Bordereaux ---

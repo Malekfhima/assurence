@@ -8,6 +8,7 @@ use App\Models\BulletinSoin;
 use App\Models\BulletinSoinDetail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class BulletinSoinController extends Controller
 {
@@ -61,6 +62,14 @@ class BulletinSoinController extends Controller
         $detailsData = $data['details'] ?? [];
         unset($data['details']);
 
+        // Gérer l'upload du PDF
+        if ($request->hasFile('pdf')) {
+            $file = $request->file('pdf');
+            $filename = 'bulletin_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('bulletins', $filename, 'public');
+            $data['pdf_path'] = $path;
+        }
+
         // Calculer le montant total depuis les détails
         $totalMontant = collect($detailsData)->sum('montant');
         $data['montant_depense'] = $totalMontant;
@@ -112,6 +121,18 @@ class BulletinSoinController extends Controller
         $detailsData = $data['details'] ?? [];
         unset($data['details']);
 
+        // Gérer l'upload du PDF (remplace l'ancien)
+        if ($request->hasFile('pdf')) {
+            // Supprimer l'ancien PDF
+            if ($bulletin->pdf_path) {
+                Storage::disk('public')->delete($bulletin->pdf_path);
+            }
+            $file = $request->file('pdf');
+            $filename = 'bulletin_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('bulletins', $filename, 'public');
+            $data['pdf_path'] = $path;
+        }
+
         // Calculer le montant total depuis les détails
         $totalMontant = collect($detailsData)->sum('montant');
         $data['montant_depense'] = $totalMontant;
@@ -143,12 +164,38 @@ class BulletinSoinController extends Controller
             ], 404);
         }
 
+        // Supprimer le PDF associé
+        if ($bulletin->pdf_path) {
+            Storage::disk('public')->delete($bulletin->pdf_path);
+        }
+
         $bulletin->delete();
 
         return response()->json([
             'success' => true,
             'message' => 'Bulletin de soin supprimé avec succès.',
         ]);
+    }
+
+    public function downloadPdf(int $id)
+    {
+        $bulletin = BulletinSoin::find($id);
+
+        if (!$bulletin || !$bulletin->pdf_path) {
+            return response()->json([
+                'success' => false,
+                'message' => 'PDF introuvable.',
+            ], 404);
+        }
+
+        if (!Storage::disk('public')->exists($bulletin->pdf_path)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le fichier PDF n\'existe plus sur le serveur.',
+            ], 404);
+        }
+
+        return Storage::disk('public')->download($bulletin->pdf_path, 'bulletin_' . $bulletin->numero_bulletin . '.pdf');
     }
 
 }
