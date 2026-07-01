@@ -22,22 +22,22 @@ function FormModal({ modal, form, errors, onSubmit, onChange, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Matricule <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.matricule} onChange={handleChange('matricule')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.matricule ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.matricule} onChange={handleChange('matricule')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.matricule ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 12345" />
               {errors.matricule && <p className="text-xs text-red-500 mt-1">{errors.matricule}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">CIN <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.cin} onChange={handleChange('cin')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.cin ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.cin} onChange={handleChange('cin')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.cin ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 12345678" />
               {errors.cin && <p className="text-xs text-red-500 mt-1">{errors.cin}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Nom <span className="text-red-500">*</span></label>
-              <input type="text" value={form.nom} onChange={handleChange('nom')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.nom ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" value={form.nom} onChange={handleChange('nom')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.nom ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : Dupont" />
               {errors.nom && <p className="text-xs text-red-500 mt-1">{errors.nom}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Prénom <span className="text-red-500">*</span></label>
-              <input type="text" value={form.prenom} onChange={handleChange('prenom')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.prenom ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" value={form.prenom} onChange={handleChange('prenom')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.prenom ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : Jean" />
               {errors.prenom && <p className="text-xs text-red-500 mt-1">{errors.prenom}</p>}
             </div>
             <div>
@@ -71,13 +71,13 @@ function FormModal({ modal, form, errors, onSubmit, onChange, onClose }) {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Adresse <span className="text-red-500">*</span></label>
-            <input type="text" value={form.adresse} onChange={handleChange('adresse')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.adresse ? 'border-red-400' : 'border-gray-300'}`} />
+            <input type="text" value={form.adresse} onChange={handleChange('adresse')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.adresse ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 123 Rue de la Liberté" />
             {errors.adresse && <p className="text-xs text-red-500 mt-1">{errors.adresse}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Téléphone <span className="text-red-500">*</span></label>
-              <input type="text" value={form.telephone} onChange={handleChange('telephone')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.telephone ? 'border-red-400' : 'border-gray-300'}`} />
+              <input type="text" value={form.telephone} onChange={handleChange('telephone')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.telephone ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 98765432" />
               {errors.telephone && <p className="text-xs text-red-500 mt-1">{errors.telephone}</p>}
             </div>
             <div>
@@ -323,9 +323,51 @@ export default function Adherents() {
         {meta.last_page > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
             <span className="text-xs text-gray-500">Page {meta.current_page} sur {meta.last_page}</span>
-            <div className="flex gap-2">
-              <button disabled={meta.current_page <= 1} onClick={() => fetchAdherents(meta.current_page - 1)} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition">Précédent</button>
-              <button disabled={meta.current_page >= meta.last_page} onClick={() => fetchAdherents(meta.current_page + 1)} className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition">Suivant</button>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={meta.current_page <= 1}
+                onClick={() => fetchAdherents(meta.current_page - 1)}
+                className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              {(() => {
+                const pages = [];
+                const total = meta.last_page;
+                const current = meta.current_page;
+                const addPage = (p) => { if (!pages.includes(p) && p >= 1 && p <= total) pages.push(p); };
+                addPage(1);
+                if (current > 3) pages.push('...');
+                addPage(current - 1);
+                addPage(current);
+                addPage(current + 1);
+                if (current < total - 2) pages.push('...');
+                addPage(total);
+                return pages.map((p, i) =>
+                  p === '...' ? (
+                    <span key={`e-${i}`} className="px-1 text-xs text-gray-400 select-none">...</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => fetchAdherents(p)}
+                      className={`min-w-[28px] px-2 py-1.5 text-xs font-medium rounded-lg transition ${
+                        p === current
+                          ? 'bg-[#0F2942] text-white shadow-sm'
+                          : 'border border-gray-300 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                );
+              })()}
+              <button
+                disabled={meta.current_page >= meta.last_page}
+                onClick={() => fetchAdherents(meta.current_page + 1)}
+                className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
             </div>
           </div>
         )}
