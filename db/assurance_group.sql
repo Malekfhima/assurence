@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS `adherent` (
   `nom` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
   `prenom` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
   `etat_civil` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `sexe` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `sexe` varchar(8) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `date_naissance` date DEFAULT NULL,
   `date_adhesion` date DEFAULT NULL,
   `adresse` varchar(500) COLLATE utf8mb4_general_ci NOT NULL,
