@@ -19,6 +19,23 @@ class Bordereau extends Model
         'montant_total' => 'decimal:2',
     ];
 
+    protected $appends = ['stats_bulletins'];
+
+    public function getStatsBulletinsAttribute(): array
+    {
+        if (!$this->relationLoaded('bulletinSoins')) {
+            return ['en_attente' => 0, 'valide' => 0, 'rejete' => 0, 'total' => 0];
+        }
+
+        $grouped = $this->bulletinSoins->groupBy('etat');
+        return [
+            'en_attente' => ($grouped->get('En attente', collect()))->count(),
+            'valide'     => ($grouped->get('Validé', collect()))->count(),
+            'rejete'     => ($grouped->get('Rejeté', collect()))->count(),
+            'total'      => $this->bulletinSoins->count(),
+        ];
+    }
+
     public function bulletinSoins(): HasMany
     {
         return $this->hasMany(BulletinSoin::class, 'id_bordereau', 'id_bordereau');
