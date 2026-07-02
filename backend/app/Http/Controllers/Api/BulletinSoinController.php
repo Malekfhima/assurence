@@ -17,6 +17,7 @@ class BulletinSoinController extends Controller
         $query = BulletinSoin::with([
             'adherent:id_adherent,nom,prenom,matricule',
             'sousAdherent:id_sous_adherent,nom,prenom',
+            'bordereau:id_bordereau,numero_bordereau',
             'details',
         ]);
 

@@ -25,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/adherents', [AdherentController::class, 'store']);
     Route::get('/adherents/by-matricule/{matricule}', [AdherentController::class, 'byMatricule']);
     Route::get('/adherents/{id}', [AdherentController::class, 'show']);
+    Route::get('/adherents/{id}/full', [AdherentController::class, 'full']);
     Route::put('/adherents/{id}', [AdherentController::class, 'update']);
     Route::delete('/adherents/{id}', [AdherentController::class, 'destroy']);
 
