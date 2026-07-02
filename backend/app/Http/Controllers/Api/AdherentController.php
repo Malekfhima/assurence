@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AdherentRequest;
 use App\Models\Adherent;
+use App\Models\BulletinSoin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -124,6 +125,52 @@ class AdherentController extends Controller
         return response()->json([
             'success' => true,
             'data' => $adherent,
+        ]);
+    }
+
+    /**
+     * Endpoint optimisé : retourne en une seule requête toutes les données
+     * d'un adhérent (infos, sous-adhérents, bulletins de l'adhérent et
+     * des sous-adhérents avec le bordereau associé).
+     */
+    public function full(int $id): JsonResponse
+    {
+        $adherent = Adherent::with('sousAdherents')->find($id);
+
+        if (!$adherent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Adhérent introuvable.',
+            ], 404);
+        }
+
+        // Récupérer les IDs des sous-adhérents pour inclure leurs bulletins
+        $sousAdherentIds = $adherent->sousAdherents->pluck('id_sous_adherent')->toArray();
+
+        // Charger les bulletins de l'adhérent ET des sous-adhérents
+        $bulletins = BulletinSoin::with([
+            'adherent:id_adherent,nom,prenom,matricule',
+            'sousAdherent:id_sous_adherent,nom,prenom',
+            'bordereau:id_bordereau,numero_bordereau,montant_total,date_envoi,statut,commentaire',
+            'details',
+        ])
+            ->where(function ($q) use ($id, $sousAdherentIds) {
+                $q->where('id_adherent', $id);
+                if (!empty($sousAdherentIds)) {
+                    $q->orWhereIn('id_sous_adherent', $sousAdherentIds);
+                }
+            })
+            ->orderBy('date_soin', 'desc')
+            ->orderBy('id_bulletin', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'adherent' => $adherent,
+                'sous_adherents' => $adherent->sousAdherents,
+                'bulletins' => $bulletins,
+            ],
         ]);
     }
 }

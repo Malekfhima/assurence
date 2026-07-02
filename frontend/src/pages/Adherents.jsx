@@ -46,6 +46,8 @@ function FormModal({ modal, form, errors, onSubmit, onChange, onClose }) {
                 <option value="">Sélectionner</option>
                 <option value="C">Célibataire</option>
                 <option value="M">Marié(e)</option>
+                <option value="D">Divorcé(e)</option>
+                <option value="V">Veuf(ve)</option>
               </select>
               {errors.etat_civil && <p className="text-xs text-red-500 mt-1">{errors.etat_civil}</p>}
             </div>
@@ -94,33 +96,6 @@ function FormModal({ modal, form, errors, onSubmit, onChange, onClose }) {
             <button type="submit" className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition">Enregistrer</button>
           </div>
         </form>
-      </div>
-    </div>
-  );
-}
-
-function ViewModal({ selected, onClose }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Détails adhérent</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">&times;</button>
-        </div>
-        <div className="p-5 space-y-3">
-          {[
-            ['Matricule', selected?.matricule], ['Nom', selected?.nom], ['Prénom', selected?.prenom],
-            ['État civil', selected?.etat_civil], ['Sexe', selected?.sexe],
-            ['Date naissance', selected?.date_naissance], ['Date adhésion', selected?.date_adhesion],
-            ['Adresse', selected?.adresse], ['CIN', selected?.cin], ['Téléphone', selected?.telephone],
-            ['Statut', selected?.statut],
-          ].map(([label, value]) => (
-            <div key={label} className="flex justify-between text-sm">
-              <span className="text-gray-500">{label}</span>
-              <span className="text-gray-900 font-medium">{value || '-'}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -282,7 +257,7 @@ export default function Adherents() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {adherents.map((a) => (
-                <tr key={a.id_adherent} className="hover:bg-gray-50 transition">
+                <tr key={a.id_adherent} onClick={() => navigate(`/adherents/${a.id_adherent}`)} className="cursor-pointer hover:bg-gray-50 transition">
                   <td className="px-4 py-3 font-medium text-gray-900">{a.matricule}</td>
                   <td className="px-4 py-3 text-gray-700">{a.nom}</td>
                   <td className="px-4 py-3 text-gray-700">{a.prenom}</td>
@@ -296,16 +271,10 @@ export default function Adherents() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => openModal('view', a)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Voir">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                      </button>
-                      <button onClick={() => navigate(`/adherents/${a.id_adherent}`)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Dossier">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253\" /></svg>
-                      </button>
-                      <button onClick={() => openModal('edit', a)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Modifier">
+                      <button onClick={(e) => { e.stopPropagation(); openModal('edit', a); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Modifier">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </button>
-                      <button onClick={() => handleDelete(a.id_adherent)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Supprimer">
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(a.id_adherent); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Supprimer">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
                     </div>
@@ -374,7 +343,6 @@ export default function Adherents() {
       </div>
 
       {/* Modals */}
-      {modal === 'view' && <ViewModal selected={selected} onClose={closeModal} />}
       {(modal === 'add' || modal === 'edit') && (
         <FormModal
           modal={modal}
