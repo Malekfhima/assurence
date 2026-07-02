@@ -15,12 +15,7 @@ class AdherentController extends Controller
         $query = Adherent::withCount('sousAdherents');
 
         if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('nom', 'like', "%{$search}%")
-                  ->orWhere('prenom', 'like', "%{$search}%")
-                  ->orWhere('matricule', 'like', "%{$search}%")
-                  ->orWhere('cin', 'like', "%{$search}%");
-            });
+            $query->where('matricule', 'like', "%{$search}%");
         }
 
         if ($statut = $request->get('statut')) {
