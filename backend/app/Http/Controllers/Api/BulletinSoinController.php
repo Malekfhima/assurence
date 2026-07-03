@@ -69,9 +69,12 @@ class BulletinSoinController extends Controller
             $data['pdf_path'] = $path;
         }
 
-        // Calculer le montant total depuis les détails
+        // Calculer le montant total et la date depuis les détails
         $totalMontant = collect($detailsData)->sum('montant');
         $data['montant_depense'] = $totalMontant;
+        if (!isset($data['date_soin']) || empty($data['date_soin'])) {
+            $data['date_soin'] = $detailsData[0]['date'] ?? null;
+        }
 
         $bulletin = BulletinSoin::create($data);
 
@@ -132,9 +135,12 @@ class BulletinSoinController extends Controller
             $data['pdf_path'] = $path;
         }
 
-        // Calculer le montant total depuis les détails
+        // Calculer le montant total et la date depuis les détails
         $totalMontant = collect($detailsData)->sum('montant');
         $data['montant_depense'] = $totalMontant;
+        if (!isset($data['date_soin']) || empty($data['date_soin'])) {
+            $data['date_soin'] = $detailsData[0]['date'] ?? null;
+        }
 
         $bulletin->update($data);
 

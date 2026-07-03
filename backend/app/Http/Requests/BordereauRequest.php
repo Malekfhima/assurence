@@ -16,7 +16,7 @@ class BordereauRequest extends FormRequest
         return [
             'id_bulletins' => 'required|array|min:1',
             'id_bulletins.*' => 'integer|exists:bulletin_soin,id_bulletin',
-            'numero_bordereau' => 'required|integer',
+            'numero_bordereau' => 'required|string|max:50',
             'date_envoi' => 'nullable|date',
             'statut' => 'nullable|string|max:50',
             'commentaire' => 'nullable|string|max:255',
@@ -31,6 +31,7 @@ class BordereauRequest extends FormRequest
             'id_bulletins.array' => 'Les bulletins doivent être une liste.',
             'id_bulletins.*.exists' => 'Un des bulletins sélectionnés n\'existe pas.',
             'numero_bordereau.required' => 'Le numéro de bordereau est obligatoire.',
+            'numero_bordereau.max' => 'Le numéro de bordereau ne doit pas dépasser 50 caractères.',
         ];
     }
 }

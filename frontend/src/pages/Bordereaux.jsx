@@ -102,7 +102,7 @@ function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBul
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bordereau <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.numero_bordereau} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setForm({...form, numero_bordereau: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: 2024001" autoFocus />
+              <input type="text" value={form.numero_bordereau} onChange={(e) => setForm({...form, numero_bordereau: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: BR-2024-001" autoFocus />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Date envoi</label>

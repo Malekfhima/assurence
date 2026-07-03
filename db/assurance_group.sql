@@ -486,7 +486,7 @@ DROP TABLE IF EXISTS `bordereau`;
 CREATE TABLE IF NOT EXISTS `bordereau` (
   `id_bordereau` int NOT NULL AUTO_INCREMENT,
   `numero_bordereau` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `montant_total` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `montant_total` decimal(10,3) NOT NULL DEFAULT '0.00',
   `date_envoi` date NOT NULL,
   `statut` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `commentaire` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
@@ -515,7 +515,7 @@ CREATE TABLE IF NOT EXISTS `bulletin_soin` (
   `numero_bordereau` varchar(255) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0',
   `numero_bulletin` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `date_soin` date NOT NULL,
-  `montant_depense` decimal(10,2) NOT NULL,
+  `montant_depense` decimal(10,3) NOT NULL,
   `type_soin` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `description` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
   `etat` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'En attente',
@@ -546,7 +546,7 @@ CREATE TABLE IF NOT EXISTS `bulletin_soin_detail` (
   `id_detail` int NOT NULL AUTO_INCREMENT,
   `id_bulletin` int NOT NULL,
   `date` date NOT NULL,
-  `montant` decimal(10,2) NOT NULL,
+  `montant` decimal(10,3) NOT NULL,
   `type_soin` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   PRIMARY KEY (`id_detail`),
   KEY `id_bulletin` (`id_bulletin`)

@@ -170,7 +170,7 @@ function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdher
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bulletin <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.numero_bulletin} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); onChange('numero_bulletin', val); }} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.numero_bulletin ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : 12345" />
+              <input type="text" value={form.numero_bulletin} onChange={(e) => onChange('numero_bulletin', e.target.value)} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.numero_bulletin ? 'border-red-400' : 'border-gray-300'}`} placeholder="Ex : BUL-2024-001" />
               {errors.numero_bulletin && <p className="text-xs text-red-500 mt-1">{errors.numero_bulletin}</p>}
             </div>
           </div>
@@ -348,7 +348,7 @@ function BordereauModal({ selectedBulletins, form, setForm, onSubmit, onClose, l
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bordereau <span className="text-red-500">*</span></label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" value={form.numero_bordereau} onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); setForm({...form, numero_bordereau: val}); }} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: 2024001" autoFocus />
+              <input type="text" value={form.numero_bordereau} onChange={(e) => setForm({...form, numero_bordereau: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: BR-2024-001" autoFocus />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Date envoi</label>
@@ -626,10 +626,6 @@ export default function Bulletins() {
           formData.append(`details[${index}][type_soin]`, detail.type_soin || '');
         });
 
-        if (modal === 'edit' && selected) {
-          formData.append('_method', 'PUT');
-        }
-
         payload = formData;
       } else {
         // Envoyer en JSON si pas de fichier
@@ -640,12 +636,7 @@ export default function Bulletins() {
         await api.post('/bulletins', payload);
         showNotif('Bulletin créé avec succès.');
       } else {
-        if (!pdfFile) {
-          await api.put(`/bulletins/${selected.id_bulletin}`, payload);
-        } else {
-          // POST avec _method: PUT pour les uploads de fichiers
-          await api.post(`/bulletins/${selected.id_bulletin}`, payload);
-        }
+        await api.post(`/bulletins/${selected.id_bulletin}`, payload);
         showNotif('Bulletin modifié avec succès.');
       }
       setModal(null);
