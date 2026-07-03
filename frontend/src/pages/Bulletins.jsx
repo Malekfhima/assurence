@@ -428,7 +428,9 @@ export default function Bulletins() {
         setMeta(res.data.meta);
       }
     } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des bulletins.';
       console.error(err);
+      showNotif(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -438,7 +440,11 @@ export default function Bulletins() {
     try {
       const res = await api.get('/adherents', { params: { per_page: 500 } });
       if (res.data.success) setAdherents(res.data.data);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des adhérents.';
+      console.error(err);
+      showNotif(msg, 'error');
+    }
   };
 
   const fetchAdherentByMatricule = async (matricule) => {
@@ -505,8 +511,20 @@ export default function Bulletins() {
         ...d,
         montant: d.montant !== null && d.montant !== undefined ? String(d.montant) : '',
       })));
-      const adherent = adherents.find((a) => a.id_adherent === Number(bulletin.id_adherent));
-      setSousAdherents(adherent?.sous_adherents || []);
+      // Charger les sous-adhérents depuis l'API (la liste ne les inclut pas)
+      const loadSousAdherents = async () => {
+        try {
+          const res = await api.get(`/adherents/${bulletin.id_adherent}`);
+          if (res.data.success) {
+            setSousAdherents(res.data.data.sous_adherents || []);
+          }
+        } catch (err) {
+          const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des sous-adhérents.';
+          console.error('Erreur chargement sous-adhérents:', err);
+          showNotif(msg, 'error');
+        }
+      };
+      loadSousAdherents();
     } else {
       setSelected(null);
       setMatchedAdherent(null);
@@ -608,6 +626,11 @@ export default function Bulletins() {
       return;
     }
 
+    // Extraire la date et le type du premier détail pour le bulletin
+    const firstDetail = validDetails[0] || {};
+    const dateSoin = firstDetail.date || '';
+    const typeSoin = firstDetail.type_soin || '';
+
     try {
       let payload;
 
@@ -617,6 +640,8 @@ export default function Bulletins() {
         formData.append('id_adherent', form.id_adherent);
         formData.append('id_sous_adherent', form.id_sous_adherent || '');
         formData.append('numero_bulletin', form.numero_bulletin);
+        formData.append('date_soin', dateSoin);
+        formData.append('type_soin', typeSoin);
         formData.append('etat', form.etat || 'En attente');
         formData.append('pdf', pdfFile);
 
@@ -633,7 +658,7 @@ export default function Bulletins() {
         payload = formData;
       } else {
         // Envoyer en JSON si pas de fichier
-        payload = { ...form, details: validDetails };
+        payload = { ...form, date_soin: dateSoin, type_soin: typeSoin, details: validDetails };
       }
 
       if (modal === 'add') {

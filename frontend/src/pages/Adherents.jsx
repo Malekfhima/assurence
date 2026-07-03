@@ -129,7 +129,9 @@ export default function Adherents() {
         setMeta(res.data.meta);
       }
     } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des adhérents.';
       console.error(err);
+      showNotif(msg, 'error');
     } finally {
       setLoading(false);
     }
