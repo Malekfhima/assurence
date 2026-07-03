@@ -2,16 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 
 const TYPE_SOIN_OPTIONS = [
-  'Consultation',
-  'Soins infirmiers',
-  'Radiologie',
-  'Analyses',
-  'Hospitalisation',
-  'Médicaments',
-  'Kinésithérapie',
-  'Dentaire',
-  'Ophtalmologie',
-  'Autre',
+  'C1',
+  'C2',
+  'C3',
+  'V1',
+  'V2',
+  'V3',
+  'PH',
+  'B',
+  'KC',
+  'MS','R','KE','AM','OPM','OPV','D1','D2','HH','HC',
 ];
 
 function emptyDetail() {
