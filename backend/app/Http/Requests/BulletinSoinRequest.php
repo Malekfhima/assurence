@@ -18,7 +18,7 @@ class BulletinSoinRequest extends FormRequest
         $rules = [
             'id_adherent' => 'required|integer|exists:adherent,id_adherent',
             'id_sous_adherent' => 'nullable|integer|exists:sous_adherent,id_sous_adherent',
-            'numero_bulletin' => 'required|integer|unique:bulletin_soin,numero_bulletin' . ($id ? ',' . $id . ',id_bulletin' : ''),
+            'numero_bulletin' => 'required|string|max:50|unique:bulletin_soin,numero_bulletin' . ($id ? ',' . $id . ',id_bulletin' : ''),
             'date_soin' => 'nullable|date',
             'montant_depense' => 'nullable|numeric|min:0',
             'type_soin' => 'nullable|string|max:100',

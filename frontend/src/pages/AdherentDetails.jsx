@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
-const etatCivilLabel = { 'C': 'Célibataire', 'M': 'Marié(e)', 'D': 'Divorcé(e)', 'V': 'Veuf(ve)' };
+const etatCivilOptions = { C: 'Célibataire', M: 'Marié(e)', D: 'Divorcé(e)', V: 'Veuf(ve)' };
+const lienParenteOptions = ['Conjoint', 'Enfant'];
+
 const etatBadge = (etat) => {
   const styles = {
     'En attente': 'bg-amber-50 text-amber-700 border-amber-200',
@@ -52,6 +54,29 @@ function SectionHeader({ title, count, onAdd, addLabel }) {
   );
 }
 
+function FormInput({ label, name, type = 'text', value, onChange, error, required, placeholder, options, inputMode }) {
+  const id = `field-${name}`;
+  return (
+    <div>
+      <label htmlFor={id} className="block text-xs font-medium text-gray-700 mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {options ? (
+        <select id={id} value={value} onChange={(e) => onChange(name, e.target.value)} required={required}
+          className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${error ? 'border-red-400' : 'border-gray-300'}`}>
+          <option value="">Sélectionner</option>
+          {options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+      ) : (
+        <input id={id} type={type} inputMode={inputMode} value={value} onChange={(e) => onChange(name, e.target.value)}
+          required={required} placeholder={placeholder}
+          className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${error ? 'border-red-400' : 'border-gray-300'}`} />
+      )}
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+  );
+}
+
 export default function AdherentDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -60,8 +85,20 @@ export default function AdherentDetails() {
   const [bulletins, setBulletins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
-
   const [viewBulletin, setViewBulletin] = useState(null);
+
+  // Edit adherent modal state
+  const [editAdherentModal, setEditAdherentModal] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [editErrors, setEditErrors] = useState({});
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Sous-adherent modal state
+  const [saModal, setSaModal] = useState(null); // null | 'add' | 'edit'
+  const [selectedSa, setSelectedSa] = useState(null);
+  const [saForm, setSaForm] = useState({ nom: '', prenom: '', date_naissance: '', sexe: '', lien_parente: '' });
+  const [saErrors, setSaErrors] = useState({});
+  const [saLoading, setSaLoading] = useState(false);
 
   const showNotif = (msg, type = 'success') => {
     setNotification({ msg, type });
@@ -77,7 +114,6 @@ export default function AdherentDetails() {
         setAdherent(adherent);
         setSousAdherents(sous_adherents || []);
         setBulletins(bulletins || []);
-
       }
     } catch (err) {
       if (err.response?.status === 404) {
@@ -91,12 +127,95 @@ export default function AdherentDetails() {
 
   useEffect(() => { fetchAll(); }, [id]);
 
-  const handleDeleteAdherent = async () => {
-    if (!window.confirm('Confirmer la suppression de cet adhérent ?')) return;
+  // --- Edit Adherent handlers ---
+
+  const openEditAdherent = () => {
+    setEditForm({ ...adherent });
+    setEditErrors({});
+    setEditAdherentModal(true);
+  };
+
+  const handleEditChange = (field, value) => {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+    setEditErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditLoading(true);
     try {
-      await api.delete(`/adherents/${id}`);
-      showNotif('Adhérent supprimé avec succès.');
-      navigate('/adherents');
+      await api.put(`/adherents/${id}`, editForm);
+      showNotif('Adhérent modifié avec succès.');
+      setEditAdherentModal(false);
+      fetchAll();
+    } catch (err) {
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors) {
+        const fieldErrors = {};
+        Object.keys(serverErrors).forEach((field) => { fieldErrors[field] = serverErrors[field][0]; });
+        setEditErrors(fieldErrors);
+      } else {
+        showNotif(err.response?.data?.message || 'Erreur lors de la modification.', 'error');
+      }
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // --- Sous-adherent handlers ---
+
+  const openAddSa = () => {
+    setSaForm({ nom: '', prenom: '', date_naissance: '', sexe: '', lien_parente: '' });
+    setSaErrors({});
+    setSelectedSa(null);
+    setSaModal('add');
+  };
+
+  const openEditSa = (sa) => {
+    setSaForm({ ...sa });
+    setSaErrors({});
+    setSelectedSa(sa);
+    setSaModal('edit');
+  };
+
+  const handleSaChange = (field, value) => {
+    setSaForm((prev) => ({ ...prev, [field]: value }));
+    setSaErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const handleSaSubmit = async (e) => {
+    e.preventDefault();
+    setSaLoading(true);
+    try {
+      if (saModal === 'add') {
+        await api.post('/sous-adherents', { ...saForm, id_adherent: Number(id) });
+        showNotif('Sous-adhérent ajouté avec succès.');
+      } else {
+        await api.put(`/sous-adherents/${selectedSa.id_sous_adherent}`, saForm);
+        showNotif('Sous-adhérent modifié avec succès.');
+      }
+      setSaModal(null);
+      fetchAll();
+    } catch (err) {
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors) {
+        const fieldErrors = {};
+        Object.keys(serverErrors).forEach((field) => { fieldErrors[field] = serverErrors[field][0]; });
+        setSaErrors(fieldErrors);
+      } else {
+        showNotif(err.response?.data?.message || 'Erreur lors de la sauvegarde.', 'error');
+      }
+    } finally {
+      setSaLoading(false);
+    }
+  };
+
+  const handleDeleteSa = async (sa) => {
+    if (!window.confirm(`Confirmer la suppression de ${sa.prenom} ${sa.nom} ?`)) return;
+    try {
+      await api.delete(`/sous-adherents/${sa.id_sous_adherent}`);
+      showNotif('Sous-adhérent supprimé avec succès.');
+      fetchAll();
     } catch (err) {
       showNotif('Erreur lors de la suppression.', 'error');
     }
@@ -174,7 +293,6 @@ export default function AdherentDetails() {
             <p className="text-xs text-gray-500">Bulletins de soins</p>
           </div>
         </div>
-
       </div>
 
       {/* === SECTION: Informations personnelles === */}
@@ -182,7 +300,22 @@ export default function AdherentDetails() {
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-900">Informations personnelles</h2>
           <div className="flex gap-2">
-            <button onClick={handleDeleteAdherent} className="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition flex items-center gap-1">
+            <button onClick={openEditAdherent} className="px-3 py-1.5 text-xs text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Modifier
+            </button>
+            <button onClick={async () => {
+              if (!window.confirm('Confirmer la suppression de cet adhérent ?')) return;
+              try {
+                await api.delete(`/adherents/${id}`);
+                showNotif('Adhérent supprimé avec succès.');
+                navigate('/adherents');
+              } catch {
+                showNotif('Erreur lors de la suppression.', 'error');
+              }
+            }} className="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
@@ -194,7 +327,7 @@ export default function AdherentDetails() {
           <InfoField label="Matricule" value={adherent.matricule} />
           <InfoField label="Nom" value={adherent.nom} />
           <InfoField label="Prénom" value={adherent.prenom} />
-          <InfoField label="État civil" value={etatCivilLabel[adherent.etat_civil] || adherent.etat_civil} />
+          <InfoField label="État civil" value={etatCivilOptions[adherent.etat_civil] || adherent.etat_civil} />
           <InfoField label="Sexe" value={adherent.sexe === 'H' ? 'Homme' : adherent.sexe === 'F' ? 'Femme' : adherent.sexe} />
           <InfoField label="Date de naissance" value={adherent.date_naissance} />
           <InfoField label="Date d'adhésion" value={adherent.date_adhesion} />
@@ -207,7 +340,7 @@ export default function AdherentDetails() {
 
       {/* === SECTION: Sous-adhérents === */}
       <div id="sous-adherents" className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <SectionHeader title="Sous-adhérents" count={sousAdherents.length} />
+        <SectionHeader title="Sous-adhérents" count={sousAdherents.length} onAdd={openAddSa} addLabel="Ajouter" />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -217,6 +350,7 @@ export default function AdherentDetails() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Date naissance</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Sexe</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Lien parenté</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600 text-xs uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -227,10 +361,24 @@ export default function AdherentDetails() {
                   <td className="px-4 py-3 text-gray-500">{s.date_naissance || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{s.sexe === 'H' ? 'Homme' : s.sexe === 'F' ? 'Femme' : s.sexe || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{s.lien_parente || '-'}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => openEditSa(s)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Modifier">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button onClick={() => handleDeleteSa(s)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Supprimer">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {sousAdherents.length === 0 && (
-                <tr><td colSpan={5} className="text-center py-8 text-gray-500">Aucun sous-adhérent</td></tr>
+                <tr><td colSpan={6} className="text-center py-8 text-gray-500">Aucun sous-adhérent</td></tr>
               )}
             </tbody>
           </table>
@@ -261,18 +409,10 @@ export default function AdherentDetails() {
                   <td className="px-4 py-3">
                     {b.bordereau?.numero_bordereau ? (
                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium border border-blue-200">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
                         N°{b.bordereau.numero_bordereau}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-medium border border-gray-200">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                        </svg>
-                        Non affecté
-                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-medium border border-gray-200">Non affecté</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -280,9 +420,7 @@ export default function AdherentDetails() {
                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium border border-purple-200">
                         {b.sous_adherent.prenom} {b.sous_adherent.nom}
                       </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">-</span>
-                    )}
+                    ) : <span className="text-gray-400 text-xs">-</span>}
                   </td>
                   <td className="px-4 py-3 text-gray-500">{b.date_soin || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{b.type_soin || '-'}</td>
@@ -305,16 +443,60 @@ export default function AdherentDetails() {
         </div>
       </div>
 
-
       {/* ========== MODALS ========== */}
 
-      {/* View Bulletin Details Modal */}
+      {/* Modal: Modifier Adhérent */}
+      <Modal open={editAdherentModal} onClose={() => setEditAdherentModal(false)} title="Modifier l'adhérent">
+        <form onSubmit={handleEditSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormInput label="Matricule" name="matricule" value={editForm.matricule || ''} onChange={handleEditChange} error={editErrors.matricule} required inputMode="numeric" />
+            <FormInput label="CIN" name="cin" value={editForm.cin || ''} onChange={handleEditChange} error={editErrors.cin} required inputMode="numeric" />
+            <FormInput label="Nom" name="nom" value={editForm.nom || ''} onChange={handleEditChange} error={editErrors.nom} required />
+            <FormInput label="Prénom" name="prenom" value={editForm.prenom || ''} onChange={handleEditChange} error={editErrors.prenom} required />
+            <FormInput label="État civil" name="etat_civil" value={editForm.etat_civil || ''} onChange={handleEditChange} error={editErrors.etat_civil} required options={['C', 'M', 'D', 'V']} />
+            <FormInput label="Sexe" name="sexe" value={editForm.sexe || ''} onChange={handleEditChange} error={editErrors.sexe} required options={['H', 'F']} />
+            <FormInput label="Date naissance" name="date_naissance" type="date" value={editForm.date_naissance || ''} onChange={handleEditChange} error={editErrors.date_naissance} required />
+            <FormInput label="Date adhésion" name="date_adhesion" type="date" value={editForm.date_adhesion || ''} onChange={handleEditChange} error={editErrors.date_adhesion} required />
+            <FormInput label="Téléphone" name="telephone" type="tel" value={editForm.telephone || ''} onChange={handleEditChange} error={editErrors.telephone} required />
+            <FormInput label="Statut" name="statut" value={editForm.statut || 'Actif'} onChange={handleEditChange} error={editErrors.statut} required options={['Actif', 'Inactif']} />
+          </div>
+          <FormInput label="Adresse" name="adresse" value={editForm.adresse || ''} onChange={handleEditChange} error={editErrors.adresse} required />
+          <div className="pt-2 flex justify-end gap-3">
+            <button type="button" onClick={() => setEditAdherentModal(false)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">Annuler</button>
+            <button type="submit" disabled={editLoading} className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition disabled:opacity-50 flex items-center gap-2">
+              {editLoading && <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+              Enregistrer
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal: Ajouter / Modifier Sous-adhérent */}
+      <Modal open={saModal !== null} onClose={() => setSaModal(null)} title={saModal === 'add' ? 'Ajouter un sous-adhérent' : 'Modifier le sous-adhérent'}>
+        <form onSubmit={handleSaSubmit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormInput label="Nom" name="nom" value={saForm.nom || ''} onChange={handleSaChange} error={saErrors.nom} required />
+            <FormInput label="Prénom" name="prenom" value={saForm.prenom || ''} onChange={handleSaChange} error={saErrors.prenom} required />
+            <FormInput label="Date naissance" name="date_naissance" type="date" value={saForm.date_naissance || ''} onChange={handleSaChange} error={saErrors.date_naissance} required />
+            <FormInput label="Sexe" name="sexe" value={saForm.sexe || ''} onChange={handleSaChange} error={saErrors.sexe} required options={['H', 'F']} />
+            <FormInput label="Lien de parenté" name="lien_parente" value={saForm.lien_parente || ''} onChange={handleSaChange} error={saErrors.lien_parente} required options={lienParenteOptions} />
+          </div>
+          <div className="pt-2 flex justify-end gap-3">
+            <button type="button" onClick={() => setSaModal(null)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">Annuler</button>
+            <button type="submit" disabled={saLoading} className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition disabled:opacity-50 flex items-center gap-2">
+              {saLoading && <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+              {saModal === 'add' ? 'Ajouter' : 'Enregistrer'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal: View Bulletin Details */}
       <Modal open={!!viewBulletin} onClose={() => setViewBulletin(null)} title="Détails du bulletin de soin">
         {viewBulletin && (
           <div className="p-5 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <InfoField label="Numéro bulletin" value={viewBulletin.numero_bulletin} />
-              <InfoField label="Numéro bordereau" value={viewBulletin.numero_bordereau} />
               <InfoField label="Date soin" value={viewBulletin.date_soin} />
               <InfoField label="Type de soin" value={viewBulletin.type_soin} />
               <InfoField label="Sous-adhérent" value={viewBulletin.sous_adherent ? `${viewBulletin.sous_adherent.prenom} ${viewBulletin.sous_adherent.nom}` : '-'} />
