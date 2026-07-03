@@ -85,7 +85,7 @@ function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBul
                   />
                   <span className="font-medium text-gray-800">N°{b.numero_bulletin}</span>
                   <span className="text-gray-500">{b.adherent?.nom} {b.adherent?.prenom}</span>
-                  <span className="ml-auto text-gray-700 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN')} DT</span>
+                  <span className="ml-auto text-gray-700 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
                 </label>
               ))
             )}
@@ -93,7 +93,7 @@ function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBul
           {selectedBulletinIds.length > 0 && (
             <div className="flex items-center justify-between mt-2">
               <p className="text-xs text-gray-500">{selectedBulletinIds.length} bulletin(s) sélectionné(s)</p>
-              <p className="text-xs font-semibold text-gray-700">Total : {totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT</p>
+              <p className="text-xs font-semibold text-gray-700">Total : {totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
             </div>
           )}
         </div>
@@ -139,9 +139,108 @@ function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBul
   );
 }
 
+function BulletinDetailView({ bulletin, onBack }) {
+  const totalMontant = (bulletin.details || []).reduce((sum, d) => sum + Number(d.montant || 0), 0);
+
+  return (
+    <div className="flex-1 overflow-y-auto p-5">
+      {/* Bouton retour */}
+      <button
+        onClick={onBack}
+        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Retour à la liste des bulletins
+      </button>
+
+      {/* En-tête bulletin */}
+      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${
+              bulletin.etat === 'Validé' ? 'bg-emerald-500' :
+              bulletin.etat === 'Rejeté' ? 'bg-red-500' : 'bg-amber-500'
+            }`}></div>
+            <h4 className="text-base font-semibold text-gray-900">Bulletin N°{bulletin.numero_bulletin}</h4>
+            <span className={etatBulletinBadge(bulletin.etat)}>{bulletin.etat || 'En attente'}</span>
+          </div>
+          <p className="text-lg font-bold text-gray-900">{Number(bulletin.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 text-sm">
+          <div>
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Adhérent</p>
+            <p className="text-gray-800 font-medium mt-0.5">{bulletin.adherent?.nom} {bulletin.adherent?.prenom}</p>
+            {bulletin.adherent?.matricule && <p className="text-xs text-gray-400">Mat: {bulletin.adherent.matricule}</p>}
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Bénéficiaire</p>
+            <p className="text-gray-800 mt-0.5">
+              {bulletin.sous_adherent ? `${bulletin.sous_adherent.prenom} ${bulletin.sous_adherent.nom}` : "L'adhérent"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Date du soin</p>
+            <p className="text-gray-800 mt-0.5">{bulletin.date_soin || bulletin.details?.[0]?.date || '-'}</p>
+          </div>
+        </div>
+
+        {bulletin.description && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-1">Description</p>
+            <p className="text-sm text-gray-700">{bulletin.description}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Tableau des détails */}
+      <h5 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Détails des soins</h5>
+      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Date</th>
+              <th className="text-left px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Type de soin</th>
+              <th className="text-right px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Montant</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {(bulletin.details || []).length === 0 ? (
+              <tr>
+                <td colSpan={3} className="text-center py-6 text-gray-400 text-xs">Aucun détail de soin.</td>
+              </tr>
+            ) : (
+              bulletin.details.map((d, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-4 py-2.5 text-gray-700">{d.date || '-'}</td>
+                  <td className="px-4 py-2.5">
+                    <span className="inline-flex px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">{d.type_soin || '-'}</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-gray-900 font-medium">{Number(d.montant || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+          {(bulletin.details || []).length > 0 && (
+            <tfoot className="bg-gray-50 border-t border-gray-200">
+              <tr>
+                <td colSpan={2} className="px-4 py-2.5 text-right text-xs font-semibold text-gray-700">Total</td>
+                <td className="px-4 py-2.5 text-right text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function BordereauDetailModal({ bordereau, onClose }) {
   const [bulletins, setBulletins] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedBulletin, setSelectedBulletin] = useState(null);
 
   useEffect(() => {
     if (!bordereau) return;
@@ -159,12 +258,49 @@ function BordereauDetailModal({ bordereau, onClose }) {
             setBulletins(bs);
           }
         })
-        .catch(console.error)
+        .catch(err => {
+          console.error(err);
+          // Notification discrète via l'état local si besoin
+        })
         .finally(() => setLoading(false));
     }
   }, [bordereau]);
 
   const stats = bordereau.stats_bulletins || { en_attente: 0, valide: 0, rejete: 0, total: 0 };
+
+  // Si un bulletin est sélectionné, afficher ses détails
+  if (selectedBulletin) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="p-5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#0F2942]/10 flex items-center justify-center">
+                <svg className="w-5 h-5 text-[#0F2942]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Détail du bulletin N°{selectedBulletin.numero_bulletin}</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Bordereau N°{bordereau.numero_bordereau}</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
+          </div>
+
+          <BulletinDetailView bulletin={selectedBulletin} onBack={() => setSelectedBulletin(null)} />
+
+          {/* Footer */}
+          <div className="p-4 border-t border-gray-200 flex justify-end flex-shrink-0 bg-gray-50/50">
+            <button onClick={() => setSelectedBulletin(null)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg transition">
+              Retour
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -184,7 +320,7 @@ function BordereauDetailModal({ bordereau, onClose }) {
                 <span className="text-xs text-gray-400">·</span>
                 <span className="text-xs text-gray-500">{stats.total} bulletin(s)</span>
                 <span className="text-xs text-gray-400">·</span>
-                <span className="text-xs text-gray-500 font-medium">{Number(bordereau.montant_total || 0).toLocaleString('fr-TN')} DT</span>
+                <span className="text-xs text-gray-500 font-medium">{Number(bordereau.montant_total || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
               </div>
             </div>
           </div>
@@ -232,7 +368,11 @@ function BordereauDetailModal({ bordereau, onClose }) {
           ) : (
             <div className="space-y-2">
               {bulletins.map((bs) => (
-                <div key={bs.id_bulletin} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition bg-white">
+                <div
+                  key={bs.id_bulletin}
+                  onClick={() => setSelectedBulletin(bs)}
+                  className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-sm hover:bg-blue-50/30 transition bg-white cursor-pointer"
+                >
                   <div className="flex items-center gap-4">
                     <div className={`w-2 h-2 rounded-full ${
                       bs.etat === 'Validé' ? 'bg-emerald-500' :
@@ -249,11 +389,16 @@ function BordereauDetailModal({ bordereau, onClose }) {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">{Number(bs.montant_depense || 0).toLocaleString('fr-TN')} DT</p>
-                    {bs.details && bs.details.length > 0 && (
-                      <p className="text-xs text-gray-400">{bs.details.length} détail(s)</p>
-                    )}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">{Number(bs.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
+                      {bs.details && bs.details.length > 0 && (
+                        <p className="text-xs text-gray-400">{bs.details.length} détail(s)</p>
+                      )}
+                    </div>
+                    <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </div>
                 </div>
               ))}
@@ -313,7 +458,9 @@ export default function Bordereaux() {
         setBulletinsDisponibles(bulletinsRes.data.data.filter(b => !b.id_bordereau));
       }
     } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des données.';
       console.error(err);
+      showNotif(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -445,7 +592,7 @@ export default function Bordereaux() {
                         {stats.en_attente}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-900 font-semibold">{Number(b.montant_total || 0).toLocaleString('fr-TN')} DT</td>
+                    <td className="px-4 py-3 text-gray-900 font-semibold">{Number(b.montant_total || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
                     <td className="px-4 py-3 text-gray-500">{b.date_envoi || '-'}</td>
                     <td className="px-4 py-3"><span className={statutBordereauBadge(b.statut)}>{b.statut || 'En attente'}</span></td>
                     <td className="px-4 py-3 text-right">

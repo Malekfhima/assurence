@@ -35,7 +35,7 @@ class DashboardController extends Controller
                 'bulletins_en_attente' => $bulletinsEnAttente,
                 'bulletins_valides' => $bulletinsValides,
                 'bulletins_rejetes' => $bulletinsRejetes,
-                'montant_total_rembourse' => number_format($montantTotal, 2, '.', ''),
+                'montant_total_rembourse' => number_format($montantTotal, 3, '.', ''),
             ],
         ]);
     }

@@ -244,7 +244,7 @@ function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdher
                 <tfoot className="bg-gray-50 border-t border-gray-200">
                   <tr>
                     <td colSpan={3} className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Montant total</td>
-                    <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT</td>
+                    <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
                   </tr>
                 </tfoot>
               </table>
@@ -334,13 +334,13 @@ function BordereauModal({ selectedBulletins, form, setForm, onSubmit, onClose, l
                   <span className="font-medium text-gray-800">N°{b.numero_bulletin}</span>
                   <span className="text-gray-500">{b.adherent?.nom} {b.adherent?.prenom}</span>
                 </div>
-                <span className="text-gray-700 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN')} DT</span>
+                <span className="text-gray-700 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
               </div>
             ))}
           </div>
           <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-200">
             <span className="text-sm font-semibold text-gray-700">Total</span>
-            <span className="text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT</span>
+            <span className="text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
           </div>
         </div>
 
@@ -428,7 +428,9 @@ export default function Bulletins() {
         setMeta(res.data.meta);
       }
     } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des bulletins.';
       console.error(err);
+      showNotif(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -438,7 +440,11 @@ export default function Bulletins() {
     try {
       const res = await api.get('/adherents', { params: { per_page: 500 } });
       if (res.data.success) setAdherents(res.data.data);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des adhérents.';
+      console.error(err);
+      showNotif(msg, 'error');
+    }
   };
 
   const fetchAdherentByMatricule = async (matricule) => {
@@ -505,8 +511,20 @@ export default function Bulletins() {
         ...d,
         montant: d.montant !== null && d.montant !== undefined ? String(d.montant) : '',
       })));
-      const adherent = adherents.find((a) => a.id_adherent === Number(bulletin.id_adherent));
-      setSousAdherents(adherent?.sous_adherents || []);
+      // Charger les sous-adhérents depuis l'API (la liste ne les inclut pas)
+      const loadSousAdherents = async () => {
+        try {
+          const res = await api.get(`/adherents/${bulletin.id_adherent}`);
+          if (res.data.success) {
+            setSousAdherents(res.data.data.sous_adherents || []);
+          }
+        } catch (err) {
+          const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des sous-adhérents.';
+          console.error('Erreur chargement sous-adhérents:', err);
+          showNotif(msg, 'error');
+        }
+      };
+      loadSousAdherents();
     } else {
       setSelected(null);
       setMatchedAdherent(null);
@@ -608,6 +626,11 @@ export default function Bulletins() {
       return;
     }
 
+    // Extraire la date et le type du premier détail pour le bulletin
+    const firstDetail = validDetails[0] || {};
+    const dateSoin = firstDetail.date || '';
+    const typeSoin = firstDetail.type_soin || '';
+
     try {
       let payload;
 
@@ -617,6 +640,8 @@ export default function Bulletins() {
         formData.append('id_adherent', form.id_adherent);
         formData.append('id_sous_adherent', form.id_sous_adherent || '');
         formData.append('numero_bulletin', form.numero_bulletin);
+        formData.append('date_soin', dateSoin);
+        formData.append('type_soin', typeSoin);
         formData.append('etat', form.etat || 'En attente');
         formData.append('pdf', pdfFile);
 
@@ -629,7 +654,7 @@ export default function Bulletins() {
         payload = formData;
       } else {
         // Envoyer en JSON si pas de fichier
-        payload = { ...form, details: validDetails };
+        payload = { ...form, date_soin: dateSoin, type_soin: typeSoin, details: validDetails };
       }
 
       if (modal === 'add') {
@@ -823,7 +848,7 @@ export default function Bulletins() {
                       {b.sous_adherent ? `${b.sous_adherent.nom} ${b.sous_adherent.prenom}` : 'L\'adhérent'}
                     </td>
                     <td className="px-4 py-3 text-gray-500">{b.details?.[0]?.date || b.date_soin || '-'}</td>
-                    <td className="px-4 py-3 text-gray-900 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN')} DT</td>
+                    <td className="px-4 py-3 text-gray-900 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
                     <td className="px-4 py-3 text-gray-500">{b.type_soin || b.details?.[0]?.type_soin || '-'}</td>
                     <td className="px-4 py-3"><span className={etatBadge(b.etat)}>{b.etat}</span></td>
                     <td className="px-4 py-3 text-center">

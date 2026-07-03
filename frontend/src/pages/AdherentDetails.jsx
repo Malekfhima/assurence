@@ -424,7 +424,7 @@ export default function AdherentDetails() {
                   </td>
                   <td className="px-4 py-3 text-gray-500">{b.date_soin || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{b.type_soin || '-'}</td>
-                  <td className="px-4 py-3 text-gray-900 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN')} DT</td>
+                  <td className="px-4 py-3 text-gray-900 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
                   <td className="px-4 py-3"><span className={etatBadge(b.etat)}>{b.etat}</span></td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => setViewBulletin(b)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Voir détails">
@@ -500,7 +500,7 @@ export default function AdherentDetails() {
               <InfoField label="Date soin" value={viewBulletin.date_soin} />
               <InfoField label="Type de soin" value={viewBulletin.type_soin} />
               <InfoField label="Sous-adhérent" value={viewBulletin.sous_adherent ? `${viewBulletin.sous_adherent.prenom} ${viewBulletin.sous_adherent.nom}` : '-'} />
-              <InfoField label="Montant dépense" value={Number(viewBulletin.montant_depense || 0).toLocaleString('fr-TN') + ' DT'} />
+              <InfoField label="Montant dépense" value={Number(viewBulletin.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' DT'} />
               <InfoField label="État" value={viewBulletin.etat} />
             </div>
             <div>

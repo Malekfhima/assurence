@@ -20,7 +20,7 @@ class BulletinSoinDetail extends Model
     {
         return [
             'date' => 'date:Y-m-d',
-            'montant' => 'decimal:2',
+            'montant' => 'decimal:3',
         ];
     }
 

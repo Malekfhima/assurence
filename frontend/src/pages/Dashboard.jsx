@@ -10,6 +10,12 @@ const defaultStats = {
 export default function Dashboard() {
   const [stats, setStats] = useState(defaultStats);
   const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState(null);
+
+  const showNotif = (msg, type = 'success') => {
+    setNotification({ msg, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -17,7 +23,9 @@ export default function Dashboard() {
         const res = await api.get('/dashboard/stats');
         if (res.data.success) setStats(res.data.data);
       } catch (err) {
+        const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des statistiques.';
         console.error('Erreur chargement stats:', err);
+        showNotif(msg, 'error');
       } finally {
         setLoading(false);
       }
@@ -40,6 +48,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm text-white ${notification.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+          {notification.msg}
+        </div>
+      )}
+
       <div>
         <h1 className="text-xl font-semibold text-gray-900">Tableau de bord</h1>
         <p className="text-sm text-gray-500 mt-1">Vue d'ensemble de votre activité</p>
@@ -78,7 +92,7 @@ export default function Dashboard() {
       {/* Montant total */}
       <div className="bg-gradient-to-r from-[#0F2942] to-blue-800 rounded-xl p-5 text-white">
         <div className="text-sm text-blue-200/70 mb-1">Montant total remboursé</div>
-        <div className="text-2xl font-bold">{Number(stats.montant_total_rembourse).toLocaleString('fr-TN', { style: 'currency', currency: 'TND' })}</div>
+        <div className="text-2xl font-bold">{Number(stats.montant_total_rembourse).toLocaleString('fr-TN', { style: 'currency', currency: 'TND', minimumFractionDigits: 3, maximumFractionDigits: 3 })}</div>
       </div>
     </div>
   );
