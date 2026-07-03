@@ -128,9 +128,9 @@ class BordereauController extends Controller
             ], 404);
         }
 
-        // Dissocier les bulletins liés
+        // Supprimer les bulletins liés (la cascade au niveau DB supprime les détails)
         BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
-                    ->update(['id_bordereau' => null]);
+                    ->delete();
 
         $bordereau->delete();
 

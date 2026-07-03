@@ -673,8 +673,7 @@ export default function Bordereaux() {
       <ConfirmModal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        message={`Supprimer le bordereau N°${deleteTarget?.numero_bordereau} ? Les bulletins liés seront dissociés mais conservés.`}
+        onConfirm={handleDelete}                    message={`Supprimer le bordereau N°${deleteTarget?.numero_bordereau} ? Les bulletins liés seront également supprimés.`}
         loading={deleteLoading}
       />
     </div>

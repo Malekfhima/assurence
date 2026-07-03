@@ -9,9 +9,10 @@ const TYPE_SOIN_OPTIONS = [
   'V2',
   'V3',
   'PH',
+  'PRO',
   'B',
   'KC',
-  'MS','R','KE','AM','OPM','OPV','D1','D2','HH','HC',
+  'MS','R','KE','AM','OPM','OPV','D1','D2','HH','HC','S.DENT',
 ];
 
 function emptyDetail() {
