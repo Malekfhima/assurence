@@ -26,9 +26,7 @@ class BulletinSoinController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('numero_bulletin', 'like', "%{$search}%")
                   ->orWhereHas('adherent', function ($q) use ($search) {
-                      $q->where('nom', 'like', "%{$search}%")
-                        ->orWhere('prenom', 'like', "%{$search}%")
-                        ->orWhere('matricule', 'like', "%{$search}%");
+                      $q->where('matricule', 'like', "%{$search}%");
                   });
             });
         }

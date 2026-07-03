@@ -2,16 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 
 const TYPE_SOIN_OPTIONS = [
-  'Consultation',
-  'Soins infirmiers',
-  'Radiologie',
-  'Analyses',
-  'Hospitalisation',
-  'Médicaments',
-  'Kinésithérapie',
-  'Dentaire',
-  'Ophtalmologie',
-  'Autre',
+  'C1',
+  'C2',
+  'C3',
+  'V1',
+  'V2',
+  'V3',
+  'PH',
+  'B',
+  'KC',
+  'MS','R','KE','AM','OPM','OPV','D1','D2','HH','HC',
 ];
 
 function emptyDetail() {
@@ -775,7 +775,7 @@ export default function Bulletins() {
       <div className="flex gap-4">
         <div className="relative flex-1 max-w-sm">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          <input type="text" placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+          <input type="text" placeholder="Rechercher par matricule ou n° bulletin..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
         </div>
         <select value={etatFilter} onChange={(e) => setEtatFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
           <option value="">Tous les états</option>
