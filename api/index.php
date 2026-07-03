@@ -636,7 +636,7 @@ function dashboardStats()
             "total_adherents"         => $totalAdherents,
             "bulletins_traites"       => $bulletinsTraites,
             "total_bordereaux"        => $totalBordereaux,
-            "montant_total_rembourse" => number_format($montantTotal, 2, '.', ''),
+            "montant_total_rembourse" => number_format($montantTotal, 3, '.', ''),
         ],
     ]);
 }

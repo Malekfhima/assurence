@@ -85,7 +85,7 @@ function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBul
                   />
                   <span className="font-medium text-gray-800">N°{b.numero_bulletin}</span>
                   <span className="text-gray-500">{b.adherent?.nom} {b.adherent?.prenom}</span>
-                  <span className="ml-auto text-gray-700 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN')} DT</span>
+                  <span className="ml-auto text-gray-700 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
                 </label>
               ))
             )}
@@ -93,7 +93,7 @@ function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBul
           {selectedBulletinIds.length > 0 && (
             <div className="flex items-center justify-between mt-2">
               <p className="text-xs text-gray-500">{selectedBulletinIds.length} bulletin(s) sélectionné(s)</p>
-              <p className="text-xs font-semibold text-gray-700">Total : {totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT</p>
+              <p className="text-xs font-semibold text-gray-700">Total : {totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
             </div>
           )}
         </div>
@@ -166,7 +166,7 @@ function BulletinDetailView({ bulletin, onBack }) {
             <h4 className="text-base font-semibold text-gray-900">Bulletin N°{bulletin.numero_bulletin}</h4>
             <span className={etatBulletinBadge(bulletin.etat)}>{bulletin.etat || 'En attente'}</span>
           </div>
-          <p className="text-lg font-bold text-gray-900">{Number(bulletin.montant_depense || 0).toLocaleString('fr-TN')} DT</p>
+          <p className="text-lg font-bold text-gray-900">{Number(bulletin.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
         </div>
 
         <div className="grid grid-cols-3 gap-4 text-sm">
@@ -218,7 +218,7 @@ function BulletinDetailView({ bulletin, onBack }) {
                   <td className="px-4 py-2.5">
                     <span className="inline-flex px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">{d.type_soin || '-'}</span>
                   </td>
-                  <td className="px-4 py-2.5 text-right text-gray-900 font-medium">{Number(d.montant || 0).toLocaleString('fr-TN')} DT</td>
+                  <td className="px-4 py-2.5 text-right text-gray-900 font-medium">{Number(d.montant || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
                 </tr>
               ))
             )}
@@ -227,7 +227,7 @@ function BulletinDetailView({ bulletin, onBack }) {
             <tfoot className="bg-gray-50 border-t border-gray-200">
               <tr>
                 <td colSpan={2} className="px-4 py-2.5 text-right text-xs font-semibold text-gray-700">Total</td>
-                <td className="px-4 py-2.5 text-right text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT</td>
+                <td className="px-4 py-2.5 text-right text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
               </tr>
             </tfoot>
           )}
@@ -320,7 +320,7 @@ function BordereauDetailModal({ bordereau, onClose }) {
                 <span className="text-xs text-gray-400">·</span>
                 <span className="text-xs text-gray-500">{stats.total} bulletin(s)</span>
                 <span className="text-xs text-gray-400">·</span>
-                <span className="text-xs text-gray-500 font-medium">{Number(bordereau.montant_total || 0).toLocaleString('fr-TN')} DT</span>
+                <span className="text-xs text-gray-500 font-medium">{Number(bordereau.montant_total || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
               </div>
             </div>
           </div>
@@ -391,7 +391,7 @@ function BordereauDetailModal({ bordereau, onClose }) {
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-gray-900">{Number(bs.montant_depense || 0).toLocaleString('fr-TN')} DT</p>
+                      <p className="text-sm font-semibold text-gray-900">{Number(bs.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
                       {bs.details && bs.details.length > 0 && (
                         <p className="text-xs text-gray-400">{bs.details.length} détail(s)</p>
                       )}
@@ -592,7 +592,7 @@ export default function Bordereaux() {
                         {stats.en_attente}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-900 font-semibold">{Number(b.montant_total || 0).toLocaleString('fr-TN')} DT</td>
+                    <td className="px-4 py-3 text-gray-900 font-semibold">{Number(b.montant_total || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
                     <td className="px-4 py-3 text-gray-500">{b.date_envoi || '-'}</td>
                     <td className="px-4 py-3"><span className={statutBordereauBadge(b.statut)}>{b.statut || 'En attente'}</span></td>
                     <td className="px-4 py-3 text-right">

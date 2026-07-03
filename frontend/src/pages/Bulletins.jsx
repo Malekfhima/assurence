@@ -244,7 +244,7 @@ function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdher
                 <tfoot className="bg-gray-50 border-t border-gray-200">
                   <tr>
                     <td colSpan={3} className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Montant total</td>
-                    <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT</td>
+                    <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
                   </tr>
                 </tfoot>
               </table>
@@ -334,13 +334,13 @@ function BordereauModal({ selectedBulletins, form, setForm, onSubmit, onClose, l
                   <span className="font-medium text-gray-800">N°{b.numero_bulletin}</span>
                   <span className="text-gray-500">{b.adherent?.nom} {b.adherent?.prenom}</span>
                 </div>
-                <span className="text-gray-700 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN')} DT</span>
+                <span className="text-gray-700 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
               </div>
             ))}
           </div>
           <div className="flex justify-between items-center mt-3 pt-2 border-t border-gray-200">
             <span className="text-sm font-semibold text-gray-700">Total</span>
-            <span className="text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} DT</span>
+            <span className="text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
           </div>
         </div>
 
@@ -848,7 +848,7 @@ export default function Bulletins() {
                       {b.sous_adherent ? `${b.sous_adherent.nom} ${b.sous_adherent.prenom}` : 'L\'adhérent'}
                     </td>
                     <td className="px-4 py-3 text-gray-500">{b.details?.[0]?.date || b.date_soin || '-'}</td>
-                    <td className="px-4 py-3 text-gray-900 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN')} DT</td>
+                    <td className="px-4 py-3 text-gray-900 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
                     <td className="px-4 py-3 text-gray-500">{b.type_soin || b.details?.[0]?.type_soin || '-'}</td>
                     <td className="px-4 py-3"><span className={etatBadge(b.etat)}>{b.etat}</span></td>
                     <td className="px-4 py-3 text-center">

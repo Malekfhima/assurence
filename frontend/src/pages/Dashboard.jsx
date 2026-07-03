@@ -92,7 +92,7 @@ export default function Dashboard() {
       {/* Montant total */}
       <div className="bg-gradient-to-r from-[#0F2942] to-blue-800 rounded-xl p-5 text-white">
         <div className="text-sm text-blue-200/70 mb-1">Montant total remboursé</div>
-        <div className="text-2xl font-bold">{Number(stats.montant_total_rembourse).toLocaleString('fr-TN', { style: 'currency', currency: 'TND' })}</div>
+        <div className="text-2xl font-bold">{Number(stats.montant_total_rembourse).toLocaleString('fr-TN', { style: 'currency', currency: 'TND', minimumFractionDigits: 3, maximumFractionDigits: 3 })}</div>
       </div>
     </div>
   );
