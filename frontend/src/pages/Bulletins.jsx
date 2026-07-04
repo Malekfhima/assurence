@@ -821,9 +821,7 @@ export default function Bulletins() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">N° Bulletin</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Adhérent</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Bénéficiaire</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Date soin</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Montant</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Type</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">État</th>
                 <th className="text-center px-4 py-3 font-medium text-gray-600 text-xs uppercase w-16">PDF</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600 text-xs uppercase">Actions</th>
@@ -848,9 +846,7 @@ export default function Bulletins() {
                     <td className="px-4 py-3 text-gray-500">
                       {b.sous_adherent ? `${b.sous_adherent.nom} ${b.sous_adherent.prenom}` : 'L\'adhérent'}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{b.details?.[0]?.date || b.date_soin || '-'}</td>
                     <td className="px-4 py-3 text-gray-900 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
-                    <td className="px-4 py-3 text-gray-500">{b.type_soin || b.details?.[0]?.type_soin || '-'}</td>
                     <td className="px-4 py-3"><span className={etatBadge(b.etat)}>{b.etat}</span></td>
                     <td className="px-4 py-3 text-center">
                       {b.pdf_path ? (
@@ -887,7 +883,7 @@ export default function Bulletins() {
                 );
               })}
               {!loading && bulletinsDisponibles.length === 0 && (
-                <tr><td colSpan={10} className="text-center py-8 text-gray-500">
+                <tr><td colSpan={8} className="text-center py-8 text-gray-500">
                   {bulletins.length > 0
                     ? 'Tous les bulletins sont rattachés à un bordereau.'
                     : 'Aucun bulletin trouvé'}

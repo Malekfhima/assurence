@@ -395,8 +395,6 @@ export default function AdherentDetails() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">N° Bulletin</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">N° Bordereau</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Sous-adhérent</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Date soin</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Type</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Montant</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">État</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600 text-xs uppercase">Détails</th>
@@ -415,15 +413,11 @@ export default function AdherentDetails() {
                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 rounded-lg text-xs font-medium border border-gray-200">Non affecté</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    {b.sous_adherent ? (
+                  <td className="px-4 py-3">{b.sous_adherent ? (
                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium border border-purple-200">
                         {b.sous_adherent.prenom} {b.sous_adherent.nom}
                       </span>
-                    ) : <span className="text-gray-400 text-xs">-</span>}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{b.date_soin || '-'}</td>
-                  <td className="px-4 py-3 text-gray-500">{b.type_soin || '-'}</td>
+                    ) : <span className="text-gray-400 text-xs">-</span>}</td>
                   <td className="px-4 py-3 text-gray-900 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
                   <td className="px-4 py-3"><span className={etatBadge(b.etat)}>{b.etat}</span></td>
                   <td className="px-4 py-3 text-right">
@@ -436,7 +430,7 @@ export default function AdherentDetails() {
                 </tr>
               ))}
               {bulletins.length === 0 && (
-                <tr><td colSpan={8} className="text-center py-8 text-gray-500">Aucun bulletin de soin</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-gray-500">Aucun bulletin de soin</td></tr>
               )}
             </tbody>
           </table>
