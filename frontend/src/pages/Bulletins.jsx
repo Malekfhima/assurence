@@ -13,6 +13,9 @@ const TYPE_SOIN_OPTIONS = [
   'B',
   'KC',
   'MS','R','KE','AM','OPM','OPV','D1','D2','HH','HC','S.DENT',
+  'LABO',
+  'RADIO',
+  'Naissance',
 ];
 
 function emptyDetail() {
@@ -186,7 +189,7 @@ function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdher
               <option value="">— L'Adhérent —</option>
               {sousAdherents.map((sa) => (
                 <option key={sa.id_sous_adherent} value={sa.id_sous_adherent}>
-                  {sa.nom} {sa.prenom} ({sa.lien_parente || 'Sous-adhérent'})
+                  {sa.nom} {sa.prenom} ({sa.display_lien_parente || sa.lien_parente || 'Sous-adhérent'})
                 </option>
               ))}
             </select>

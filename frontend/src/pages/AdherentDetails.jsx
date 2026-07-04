@@ -3,7 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 
-const lienParenteOptions = ['Fils', 'Fille', 'Conjoint'];
+const lienParenteOptions = ['Fils', 'Fille', 'Conjoint', 'Enfant'];
+
+const resolveLienParente = (sa) => {
+  if (sa.display_lien_parente) return sa.display_lien_parente;
+  if (sa.lien_parente === 'Enfant') {
+    return sa.sexe === 'Homme' ? 'Fils' : sa.sexe === 'Femme' ? 'Fille' : 'Enfant';
+  }
+  return sa.lien_parente || '-';
+};
 
 const etatBadge = (etat) => {
   const styles = {
@@ -375,7 +383,7 @@ export default function AdherentDetails() {
                   <td className="px-4 py-3 text-gray-700">{s.prenom}</td>
                   <td className="px-4 py-3 text-gray-500">{s.date_naissance || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{s.sexe || '-'}</td>
-                  <td className="px-4 py-3 text-gray-500">{s.lien_parente || '-'}</td>
+                  <td className="px-4 py-3 text-gray-500">{resolveLienParente(s)}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => openEditSa(s)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Modifier">

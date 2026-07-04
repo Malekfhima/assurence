@@ -16,7 +16,7 @@ class AdherentRequest extends FormRequest
         $id = $this->route('id');
 
         return [
-            'matricule' => 'required|integer|unique:adherent,matricule,' . $id . ',id_adherent',
+            'matricule' => 'required|numeric|unique:adherent,matricule,' . $id . ',id_adherent',
             'nom' => 'required|string|max:100',
             'prenom' => 'required|string|max:100',
             'etat_civil' => 'required|string|max:50',
@@ -24,7 +24,7 @@ class AdherentRequest extends FormRequest
             'date_naissance' => 'required|date',
             'date_adhesion' => 'required|date',
             'adresse' => 'required|string|max:500',
-            'cin' => 'nullable|integer',
+            'cin' => 'nullable|numeric',
             'telephone' => 'required|string|max:30',
             'statut' => 'required|string|max:100',
         ];
@@ -43,6 +43,7 @@ class AdherentRequest extends FormRequest
             'date_adhesion.required' => 'La date d\'adhésion est obligatoire.',
             'adresse.required' => 'L\'adresse est obligatoire.',
             'cin.required' => 'Le CIN est obligatoire.',
+            'cin.numeric' => 'Le CIN doit être une valeur numérique valide.',
             'telephone.required' => 'Le téléphone est obligatoire.',
             'statut.required' => 'Le statut est obligatoire.',
         ];

@@ -19,7 +19,7 @@ class SousAdherentRequest extends FormRequest
             'prenom' => 'required|string|max:100',
             'date_naissance' => 'required|date',
             'sexe' => 'required|string|max:20',
-            'lien_parente' => 'required|string|in:Fils,Fille,Conjoint',
+            'lien_parente' => 'required|string|in:Fils,Fille,Conjoint,Enfant',
         ];
     }
 
@@ -33,7 +33,7 @@ class SousAdherentRequest extends FormRequest
             'date_naissance.required' => 'La date de naissance est obligatoire.',
             'sexe.required' => 'Le sexe est obligatoire.',
             'lien_parente.required' => 'Le lien de parenté est obligatoire.',
-            'lien_parente.in' => 'Le lien de parenté doit être Fils, Fille ou Conjoint.',
+            'lien_parente.in' => 'Le lien de parenté doit être Fils, Fille, Conjoint ou Enfant.',
         ];
     }
 }
