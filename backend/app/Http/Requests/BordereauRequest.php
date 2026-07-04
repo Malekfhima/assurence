@@ -16,7 +16,7 @@ class BordereauRequest extends FormRequest
         $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
 
         $rules = [
-            'numero_bordereau' => 'required|string|max:50',
+            'numero_bordereau' => 'required|string|max:50|unique:bordereau,numero_bordereau,' . ($this->route('id') ?? 'NULL') . ',id_bordereau',
             'date_envoi' => 'nullable|date',
             'statut' => 'nullable|string|max:50',
             'commentaire' => 'nullable|string|max:255',

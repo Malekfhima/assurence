@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
-const etatCivilOptions = { C: 'Célibataire', M: 'Marié(e)', D: 'Divorcé(e)', V: 'Veuf(ve)' };
-const lienParenteOptions = ['Conjoint', 'Enfant'];
+
+const lienParenteOptions = ['Fils', 'Fille', 'Conjoint'];
 
 const etatBadge = (etat) => {
   const styles = {
@@ -179,8 +179,23 @@ export default function AdherentDetails() {
   };
 
   const handleSaChange = (field, value) => {
-    setSaForm((prev) => ({ ...prev, [field]: value }));
-    setSaErrors((prev) => ({ ...prev, [field]: '' }));
+    setSaForm((prev) => {
+      const updated = { ...prev, [field]: value };
+      // Auto-détection du lien de parenté selon le sexe
+      if (field === 'sexe') {
+        if (value === 'Homme') {
+          updated.lien_parente = 'Fils';
+        } else if (value === 'Femme') {
+          updated.lien_parente = 'Fille';
+        }
+      }
+      return updated;
+    });
+    setSaErrors((prev) => {
+      const cleared = { ...prev, [field]: '' };
+      if (field === 'sexe') cleared.lien_parente = '';
+      return cleared;
+    });
   };
 
   const handleSaSubmit = async (e) => {
@@ -327,8 +342,8 @@ export default function AdherentDetails() {
           <InfoField label="Matricule" value={adherent.matricule} />
           <InfoField label="Nom" value={adherent.nom} />
           <InfoField label="Prénom" value={adherent.prenom} />
-          <InfoField label="État civil" value={etatCivilOptions[adherent.etat_civil] || adherent.etat_civil} />
-          <InfoField label="Sexe" value={adherent.sexe === 'H' ? 'Homme' : adherent.sexe === 'F' ? 'Femme' : adherent.sexe} />
+          <InfoField label="État civil" value={adherent.etat_civil} />
+          <InfoField label="Sexe" value={adherent.sexe} />
           <InfoField label="Date de naissance" value={adherent.date_naissance} />
           <InfoField label="Date d'adhésion" value={adherent.date_adhesion} />
           <InfoField label="Adresse" value={adherent.adresse} />
@@ -359,7 +374,7 @@ export default function AdherentDetails() {
                   <td className="px-4 py-3 font-medium text-gray-900">{s.nom}</td>
                   <td className="px-4 py-3 text-gray-700">{s.prenom}</td>
                   <td className="px-4 py-3 text-gray-500">{s.date_naissance || '-'}</td>
-                  <td className="px-4 py-3 text-gray-500">{s.sexe === 'H' ? 'Homme' : s.sexe === 'F' ? 'Femme' : s.sexe || '-'}</td>
+                  <td className="px-4 py-3 text-gray-500">{s.sexe || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{s.lien_parente || '-'}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">

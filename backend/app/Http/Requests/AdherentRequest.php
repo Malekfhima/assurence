@@ -24,7 +24,7 @@ class AdherentRequest extends FormRequest
             'date_naissance' => 'required|date',
             'date_adhesion' => 'required|date',
             'adresse' => 'required|string|max:500',
-            'cin' => 'required|numeric',
+            'cin' => 'nullable|integer',
             'telephone' => 'required|string|max:30',
             'statut' => 'required|string|max:100',
         ];
