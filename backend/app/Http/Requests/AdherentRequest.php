@@ -13,7 +13,7 @@ class AdherentRequest extends FormRequest
 
     public function rules(): array
     {
-        $id = $this->route('adherent');
+        $id = $this->route('id');
 
         return [
             'matricule' => 'required|integer|unique:adherent,matricule,' . $id . ',id_adherent',

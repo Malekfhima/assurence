@@ -49,8 +49,9 @@ function ConfirmModal({ open, onClose, onConfirm, message, loading }) {
   );
 }
 
-function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBulletinIds, setSelectedBulletinIds, onSubmit, onClose, loading }) {
-  const totalMontant = bulletinsDisponibles
+function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBulletinIds, setSelectedBulletinIds, onSubmit, onClose, loading, editMode, allBulletins }) {
+  const displayItems = editMode ? (allBulletins || []) : bulletinsDisponibles;
+  const totalMontant = displayItems
     .filter(b => selectedBulletinIds.includes(b.id_bulletin))
     .reduce((sum, b) => sum + Number(b.montant_depense || 0), 0);
 
@@ -58,18 +59,20 @@ function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBul
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Créer un bordereau</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{editMode ? 'Modifier le bordereau' : 'Créer un bordereau'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">&times;</button>
         </div>
 
-        {/* Sélection des bulletins disponibles */}
+        {/* Sélection des bulletins */}
         <div className="px-5 py-4 border-b border-gray-100">
           <label className="block text-xs font-medium text-gray-700 mb-2">Sélectionner les bulletins à regrouper</label>
           <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-            {bulletinsDisponibles.length === 0 ? (
-              <p className="text-center py-6 text-gray-400 text-sm">Tous les bulletins sont déjà rattachés à un bordereau.</p>
-            ) : (
-              bulletinsDisponibles.map(b => (
+            {(() => {
+              const items = editMode ? (allBulletins || []) : bulletinsDisponibles;
+              if (items.length === 0) {
+                return <p className="text-center py-6 text-gray-400 text-sm">Aucun bulletin disponible.</p>;
+              }
+              return items.map(b => (
                 <label key={b.id_bulletin} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm">
                   <input
                     type="checkbox"
@@ -87,8 +90,8 @@ function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBul
                   <span className="text-gray-500">{b.adherent?.nom} {b.adherent?.prenom}</span>
                   <span className="ml-auto text-gray-700 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
                 </label>
-              ))
-            )}
+              ));
+            })()}
           </div>
           {selectedBulletinIds.length > 0 && (
             <div className="flex items-center justify-between mt-2">
@@ -123,14 +126,14 @@ function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBul
           </div>
           <div className="pt-2 flex justify-end gap-3">
             <button type="button" onClick={onClose} disabled={loading} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition disabled:opacity-50">Annuler</button>
-            <button type="submit" disabled={loading || selectedBulletinIds.length === 0} className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition disabled:opacity-50 flex items-center gap-2">
+            <button type="submit" disabled={loading || (!editMode && selectedBulletinIds.length === 0)} className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition disabled:opacity-50 flex items-center gap-2">
               {loading && (
                 <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               )}
-              Créer le bordereau
+              {editMode ? 'Enregistrer les modifications' : 'Créer le bordereau'}
             </button>
           </div>
         </form>
@@ -139,7 +142,118 @@ function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBul
   );
 }
 
-function BulletinDetailView({ bulletin, onBack }) {
+function PdfPreviewModal({ bulletin, onClose }) {
+  const [pdfUrl, setPdfUrl] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!bulletin?.id_bulletin) return;
+    let blobUrl = null;
+    setLoading(true);
+    setError('');
+
+    const fetchPdf = async () => {
+      try {
+        const response = await api.get(`/bulletins/${bulletin.id_bulletin}/pdf`, {
+          responseType: 'blob',
+        });
+        blobUrl = URL.createObjectURL(response.data);
+        setPdfUrl(blobUrl);
+      } catch (err) {
+        setError('Impossible de charger le PDF.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPdf();
+
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [bulletin?.id_bulletin]);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            <h3 className="text-base font-semibold text-gray-900">
+              Bulletin n°{bulletin?.numero_bulletin}
+            </h3>
+            <span className="text-xs text-gray-400">— {bulletin?.adherent?.nom} {bulletin?.adherent?.prenom}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                try {
+                  const response = await api.get(`/bulletins/${bulletin.id_bulletin}/pdf`, {
+                    params: { download: '1' },
+                    responseType: 'blob',
+                  });
+                  const blob = response.data;
+                  const blobUrl = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = blobUrl;
+                  link.download = `bulletin_${bulletin.numero_bulletin}.pdf`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                } catch (err) {
+                  console.error('Erreur téléchargement PDF:', err);
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0F2942] hover:bg-[#1A3A5C] rounded-lg transition"
+              title="Télécharger le PDF"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Télécharger
+            </button>
+            <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+        {/* PDF Viewer */}
+        <div className="flex-1 min-h-0 bg-gray-100 flex items-center justify-center">
+          {loading && (
+            <div className="flex flex-col items-center gap-3 text-gray-400">
+              <svg className="w-8 h-8 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="text-xs">Chargement du PDF...</span>
+            </div>
+          )}
+          {error && (
+            <div className="flex flex-col items-center gap-2 text-red-500">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <span className="text-sm">{error}</span>
+            </div>
+          )}
+          {pdfUrl && (
+            <iframe
+              src={pdfUrl}
+              className="w-full h-full min-h-[65vh]"
+              title={`Bulletin n°${bulletin.numero_bulletin}`}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BulletinDetailView({ bulletin, onBack, onPreviewPdf }) {
   const totalMontant = (bulletin.details || []).reduce((sum, d) => sum + Number(d.montant || 0), 0);
 
   return (
@@ -166,7 +280,22 @@ function BulletinDetailView({ bulletin, onBack }) {
             <h4 className="text-base font-semibold text-gray-900">Bulletin N°{bulletin.numero_bulletin}</h4>
             <span className={etatBulletinBadge(bulletin.etat)}>{bulletin.etat || 'En attente'}</span>
           </div>
-          <p className="text-lg font-bold text-gray-900">{Number(bulletin.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
+          <div className="flex items-center gap-3">
+            {bulletin.pdf_path && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onPreviewPdf?.(bulletin); }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
+                title="Aperçu du PDF"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Aperçu
+              </button>
+            )}
+            <p className="text-lg font-bold text-gray-900">{Number(bulletin.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4 text-sm">
@@ -237,10 +366,11 @@ function BulletinDetailView({ bulletin, onBack }) {
   );
 }
 
-function BordereauDetailModal({ bordereau, onClose }) {
+function BordereauDetailModal({ bordereau, onClose, onEdit }) {
   const [bulletins, setBulletins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBulletin, setSelectedBulletin] = useState(null);
+  const [pdfPreview, setPdfPreview] = useState(null);
 
   useEffect(() => {
     if (!bordereau) return;
@@ -271,34 +401,43 @@ function BordereauDetailModal({ bordereau, onClose }) {
   // Si un bulletin est sélectionné, afficher ses détails
   if (selectedBulletin) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-          {/* Header */}
-          <div className="p-5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#0F2942]/10 flex items-center justify-center">
-                <svg className="w-5 h-5 text-[#0F2942]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+      <>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="p-5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-[#0F2942]/10 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-[#0F2942]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Détail du bulletin N°{selectedBulletin.numero_bulletin}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Bordereau N°{bordereau.numero_bordereau}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Détail du bulletin N°{selectedBulletin.numero_bulletin}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Bordereau N°{bordereau.numero_bordereau}</p>
-              </div>
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
-          </div>
 
-          <BulletinDetailView bulletin={selectedBulletin} onBack={() => setSelectedBulletin(null)} />
+            <BulletinDetailView bulletin={selectedBulletin} onBack={() => setSelectedBulletin(null)} onPreviewPdf={setPdfPreview} />
 
-          {/* Footer */}
-          <div className="p-4 border-t border-gray-200 flex justify-end flex-shrink-0 bg-gray-50/50">
-            <button onClick={() => setSelectedBulletin(null)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg transition">
-              Retour
-            </button>
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-200 flex justify-end flex-shrink-0 bg-gray-50/50">
+              <button onClick={() => setSelectedBulletin(null)} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg transition">
+                Retour
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+
+        {pdfPreview && (
+          <PdfPreviewModal
+            bulletin={pdfPreview}
+            onClose={() => setPdfPreview(null)}
+          />
+        )}
+      </>
     );
   }
 
@@ -324,7 +463,19 @@ function BordereauDetailModal({ bordereau, onClose }) {
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(bordereau); }}
+              className="px-3 py-1.5 text-xs text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition flex items-center gap-1"
+              title="Modifier"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Modifier
+            </button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
+          </div>
         </div>
 
         {/* Stats récapitulatives */}
@@ -389,7 +540,20 @@ function BordereauDetailModal({ bordereau, onClose }) {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    {bs.pdf_path && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setPdfPreview(bs); }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
+                        title="Aperçu du PDF"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Aperçu
+                      </button>
+                    )}
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">{Number(bs.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
                       {bs.details && bs.details.length > 0 && (
@@ -417,6 +581,13 @@ function BordereauDetailModal({ bordereau, onClose }) {
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg transition">Fermer</button>
         </div>
       </div>
+
+      {pdfPreview && (
+        <PdfPreviewModal
+          bulletin={pdfPreview}
+          onClose={() => setPdfPreview(null)}
+        />
+      )}
     </div>
   );
 }
@@ -436,6 +607,16 @@ export default function Bordereaux() {
   // Detail modal state
   const [detailTarget, setDetailTarget] = useState(null);
 
+  // Filter state
+  const [filterAnnee, setFilterAnnee] = useState('');
+  const [filterMois, setFilterMois] = useState('');
+
+  // Edit modal state
+  const [editTarget, setEditTarget] = useState(null);
+  const [editForm, setEditForm] = useState({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
+  const [editBulletinIds, setEditBulletinIds] = useState([]);
+  const [editLoading, setEditLoading] = useState(false);
+
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -448,8 +629,12 @@ export default function Bordereaux() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const params = { per_page: 100 };
+      if (filterAnnee) params.annee = filterAnnee;
+      if (filterMois) params.mois = filterMois;
+
       const [bordereauxRes, bulletinsRes] = await Promise.all([
-        api.get('/bordereaux', { params: { per_page: 100 } }),
+        api.get('/bordereaux', { params }),
         api.get('/bulletins', { params: { per_page: 500 } }),
       ]);
       if (bordereauxRes.data.success) setBordereaux(bordereauxRes.data.data);
@@ -466,7 +651,7 @@ export default function Bordereaux() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [filterAnnee, filterMois]);
 
   const openCreateModal = () => {
     setBordereauForm({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
@@ -497,6 +682,38 @@ export default function Bordereaux() {
     }
   };
 
+  const openEditModal = (bordereau) => {
+    const bulletinIds = (bordereau.bulletinSoins || bordereau.bulletin_soins || []).map(bs => bs.id_bulletin);
+    setEditForm({
+      numero_bordereau: bordereau.numero_bordereau || '',
+      date_envoi: bordereau.date_envoi || '',
+      statut: bordereau.statut || 'En attente',
+      commentaire: bordereau.commentaire || '',
+    });
+    setEditBulletinIds(bulletinIds);
+    setEditTarget(bordereau);
+    setDetailTarget(null);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editTarget) return;
+    setEditLoading(true);
+    try {
+      await api.put(`/bordereaux/${editTarget.id_bordereau}`, {
+        ...editForm,
+        id_bulletins: editBulletinIds,
+      });
+      showNotif('Bordereau modifié avec succès.');
+      setEditTarget(null);
+      fetchData();
+    } catch (err) {
+      showNotif(err.response?.data?.message || 'Erreur lors de la modification.', 'error');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleteLoading(true);
@@ -518,13 +735,46 @@ export default function Bordereaux() {
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm text-white ${notification.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>{notification.msg}</div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header with filters */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Bordereaux</h1>
           <p className="text-sm text-gray-500 mt-1">{bordereaux.length} bordereaux · {bulletinsDisponibles.length} bulletin(s) disponible(s)</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Filtre année */}
+          <select
+            value={filterAnnee}
+            onChange={(e) => setFilterAnnee(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+          >
+            <option value="">Toutes années</option>
+            {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(a => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+          {/* Filtre mois */}
+          <select
+            value={filterMois}
+            onChange={(e) => setFilterMois(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+          >
+            <option value="">Tous mois</option>
+            {Object.entries({ 1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril', 5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août', 9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre' }).map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </select>
+          {(filterAnnee || filterMois) && (
+            <button
+              onClick={() => { setFilterAnnee(''); setFilterMois(''); }}
+              className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
+              title="Réinitialiser les filtres"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
           <button
             onClick={openCreateModal}
             className="px-4 py-2 bg-[#0F2942] text-white rounded-lg text-sm font-medium hover:bg-[#1A3A5C] transition flex items-center gap-2"
@@ -661,11 +911,28 @@ export default function Bordereaux() {
         />
       )}
 
+      {/* Edit modal */}
+      {editTarget && (
+        <BordereauCreateModal
+          editMode
+          allBulletins={bulletinsDisponibles.concat(editTarget.bulletinSoins || editTarget.bulletin_soins || [])}
+          bulletinsDisponibles={bulletinsDisponibles}
+          form={editForm}
+          setForm={setEditForm}
+          selectedBulletinIds={editBulletinIds}
+          setSelectedBulletinIds={setEditBulletinIds}
+          onSubmit={handleEditSubmit}
+          onClose={() => setEditTarget(null)}
+          loading={editLoading}
+        />
+      )}
+
       {/* Detail modal */}
       {detailTarget && (
         <BordereauDetailModal
           bordereau={detailTarget}
           onClose={() => setDetailTarget(null)}
+          onEdit={openEditModal}
         />
       )}
 
@@ -674,7 +941,7 @@ export default function Bordereaux() {
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        message={`Supprimer le bordereau N°${deleteTarget?.numero_bordereau} ? Les bulletins liés seront dissociés mais conservés.`}
+        message={`Supprimer le bordereau N°${deleteTarget?.numero_bordereau} ? Les bulletins liés seront également supprimés.`}
         loading={deleteLoading}
       />
     </div>

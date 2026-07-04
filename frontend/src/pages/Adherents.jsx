@@ -44,10 +44,10 @@ function FormModal({ modal, form, errors, onSubmit, onChange, onClose }) {
               <label className="block text-xs font-medium text-gray-700 mb-1">État civil <span className="text-red-500">*</span></label>
               <select value={form.etat_civil} onChange={handleChange('etat_civil')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.etat_civil ? 'border-red-400' : 'border-gray-300'}`}>
                 <option value="">Sélectionner</option>
-                <option value="C">Célibataire</option>
-                <option value="M">Marié(e)</option>
-                <option value="D">Divorcé(e)</option>
-                <option value="V">Veuf(ve)</option>
+                <option value="Célibataire">Célibataire</option>
+                <option value="Marié(e)">Marié(e)</option>
+                <option value="Divorcé(e)">Divorcé(e)</option>
+                <option value="Veuf(ve)">Veuf(ve)</option>
               </select>
               {errors.etat_civil && <p className="text-xs text-red-500 mt-1">{errors.etat_civil}</p>}
             </div>
@@ -55,8 +55,8 @@ function FormModal({ modal, form, errors, onSubmit, onChange, onClose }) {
               <label className="block text-xs font-medium text-gray-700 mb-1">Sexe <span className="text-red-500">*</span></label>
               <select value={form.sexe} onChange={handleChange('sexe')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.sexe ? 'border-red-400' : 'border-gray-300'}`}>
                 <option value="">Sélectionner</option>
-                <option value="H">Homme</option>
-                <option value="F">Femme</option>
+                <option value="Homme">Homme</option>
+                <option value="Femme">Femme</option>
               </select>
               {errors.sexe && <p className="text-xs text-red-500 mt-1">{errors.sexe}</p>}
             </div>
@@ -147,7 +147,7 @@ export default function Adherents() {
   const openModal = async (type, adherent = null) => {
     if (type === 'edit' && adherent) {
       setSelected(adherent);
-      setForm({ ...adherent, date_naissance: adherent.date_naissance || '', date_adhesion: adherent.date_adhesion || '' });
+      setForm({ ...adherent, date_naissance: adherent.date_naissance || '', date_adhesion: adherent.date_adhesion || '', etat_civil: adherent.etat_civil || '', sexe: adherent.sexe || '' });
     } else if (type === 'view' && adherent) {
       setSelected(adherent);
     } else {

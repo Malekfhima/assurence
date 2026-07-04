@@ -614,6 +614,8 @@ function deleteBordereau($id)
     if (!$stmt->fetch()) {
         jsonResponse(["success" => false, "message" => "Bordereau introuvable."], 404);
     }
+    // Supprimer les bulletins liés (détails supprimés en cascade par la DB)
+    $pdo->prepare("DELETE FROM bulletin_soin WHERE id_bordereau = ?")->execute([$id]);
     $pdo->prepare("DELETE FROM bordereau WHERE id_bordereau = ?")->execute([$id]);
     jsonResponse(["success" => true, "message" => "Bordereau supprimé avec succès."]);
 }
