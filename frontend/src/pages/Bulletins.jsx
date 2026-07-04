@@ -766,7 +766,7 @@ export default function Bulletins() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Bulletins de soin</h1>
-          <p className="text-sm text-gray-500 mt-1">{bulletinsDisponibles.length} bulletin(s) disponible(s){bulletins.length > bulletinsDisponibles.length && <span className="text-gray-400"> ({bulletins.length - bulletinsDisponibles.length} dans un bordereau)</span>}</p>
+          <p className="text-sm text-gray-500 mt-1">{meta.total} bulletin(s) au total</p>
         </div>
         <div className="flex items-center gap-3">
           <button
