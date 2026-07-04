@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
-const etatCivilOptions = { C: 'Célibataire', M: 'Marié(e)', D: 'Divorcé(e)', V: 'Veuf(ve)' };
-const lienParenteOptions = ['Conjoint', 'Enfant'];
+
+const lienParenteOptions = ['Fils', 'Fille', 'Conjoint'];
 
 const etatBadge = (etat) => {
   const styles = {
@@ -130,7 +130,7 @@ export default function AdherentDetails() {
   // --- Edit Adherent handlers ---
 
   const openEditAdherent = () => {
-    setEditForm({ ...adherent });
+    setEditForm({ ...adherent, etat_civil: adherent.etat_civil || '', sexe: adherent.sexe || '' });
     setEditErrors({});
     setEditAdherentModal(true);
   };
@@ -179,8 +179,23 @@ export default function AdherentDetails() {
   };
 
   const handleSaChange = (field, value) => {
-    setSaForm((prev) => ({ ...prev, [field]: value }));
-    setSaErrors((prev) => ({ ...prev, [field]: '' }));
+    setSaForm((prev) => {
+      const updated = { ...prev, [field]: value };
+      // Auto-détection du lien de parenté selon le sexe
+      if (field === 'sexe') {
+        if (value === 'Homme') {
+          updated.lien_parente = 'Fils';
+        } else if (value === 'Femme') {
+          updated.lien_parente = 'Fille';
+        }
+      }
+      return updated;
+    });
+    setSaErrors((prev) => {
+      const cleared = { ...prev, [field]: '' };
+      if (field === 'sexe') cleared.lien_parente = '';
+      return cleared;
+    });
   };
 
   const handleSaSubmit = async (e) => {
@@ -327,8 +342,8 @@ export default function AdherentDetails() {
           <InfoField label="Matricule" value={adherent.matricule} />
           <InfoField label="Nom" value={adherent.nom} />
           <InfoField label="Prénom" value={adherent.prenom} />
-          <InfoField label="État civil" value={etatCivilOptions[adherent.etat_civil] || adherent.etat_civil} />
-          <InfoField label="Sexe" value={adherent.sexe === 'H' ? 'Homme' : adherent.sexe === 'F' ? 'Femme' : adherent.sexe} />
+          <InfoField label="État civil" value={adherent.etat_civil} />
+          <InfoField label="Sexe" value={adherent.sexe} />
           <InfoField label="Date de naissance" value={adherent.date_naissance} />
           <InfoField label="Date d'adhésion" value={adherent.date_adhesion} />
           <InfoField label="Adresse" value={adherent.adresse} />
@@ -359,7 +374,7 @@ export default function AdherentDetails() {
                   <td className="px-4 py-3 font-medium text-gray-900">{s.nom}</td>
                   <td className="px-4 py-3 text-gray-700">{s.prenom}</td>
                   <td className="px-4 py-3 text-gray-500">{s.date_naissance || '-'}</td>
-                  <td className="px-4 py-3 text-gray-500">{s.sexe === 'H' ? 'Homme' : s.sexe === 'F' ? 'Femme' : s.sexe || '-'}</td>
+                  <td className="px-4 py-3 text-gray-500">{s.sexe || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{s.lien_parente || '-'}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -447,8 +462,8 @@ export default function AdherentDetails() {
             <FormInput label="CIN" name="cin" value={editForm.cin || ''} onChange={handleEditChange} error={editErrors.cin} required inputMode="numeric" />
             <FormInput label="Nom" name="nom" value={editForm.nom || ''} onChange={handleEditChange} error={editErrors.nom} required />
             <FormInput label="Prénom" name="prenom" value={editForm.prenom || ''} onChange={handleEditChange} error={editErrors.prenom} required />
-            <FormInput label="État civil" name="etat_civil" value={editForm.etat_civil || ''} onChange={handleEditChange} error={editErrors.etat_civil} required options={['C', 'M', 'D', 'V']} />
-            <FormInput label="Sexe" name="sexe" value={editForm.sexe || ''} onChange={handleEditChange} error={editErrors.sexe} required options={['H', 'F']} />
+            <FormInput label="État civil" name="etat_civil" value={editForm.etat_civil || ''} onChange={handleEditChange} error={editErrors.etat_civil} required options={['Célibataire', 'Marié(e)', 'Divorcé(e)', 'Veuf(ve)']} />
+            <FormInput label="Sexe" name="sexe" value={editForm.sexe || ''} onChange={handleEditChange} error={editErrors.sexe} required options={['Homme', 'Femme']} />
             <FormInput label="Date naissance" name="date_naissance" type="date" value={editForm.date_naissance || ''} onChange={handleEditChange} error={editErrors.date_naissance} required />
             <FormInput label="Date adhésion" name="date_adhesion" type="date" value={editForm.date_adhesion || ''} onChange={handleEditChange} error={editErrors.date_adhesion} required />
             <FormInput label="Téléphone" name="telephone" type="tel" value={editForm.telephone || ''} onChange={handleEditChange} error={editErrors.telephone} required />
@@ -472,7 +487,7 @@ export default function AdherentDetails() {
             <FormInput label="Nom" name="nom" value={saForm.nom || ''} onChange={handleSaChange} error={saErrors.nom} required />
             <FormInput label="Prénom" name="prenom" value={saForm.prenom || ''} onChange={handleSaChange} error={saErrors.prenom} required />
             <FormInput label="Date naissance" name="date_naissance" type="date" value={saForm.date_naissance || ''} onChange={handleSaChange} error={saErrors.date_naissance} required />
-            <FormInput label="Sexe" name="sexe" value={saForm.sexe || ''} onChange={handleSaChange} error={saErrors.sexe} required options={['H', 'F']} />
+            <FormInput label="Sexe" name="sexe" value={saForm.sexe || ''} onChange={handleSaChange} error={saErrors.sexe} required options={['Homme', 'Femme']} />
             <FormInput label="Lien de parenté" name="lien_parente" value={saForm.lien_parente || ''} onChange={handleSaChange} error={saErrors.lien_parente} required options={lienParenteOptions} />
           </div>
           <div className="pt-2 flex justify-end gap-3">

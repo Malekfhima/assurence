@@ -22,6 +22,14 @@ class BordereauController extends Controller
             });
         }
 
+        // Filtre par année et mois (sur date_envoi)
+        if ($annee = $request->get('annee')) {
+            $query->whereYear('date_envoi', $annee);
+        }
+        if ($mois = $request->get('mois')) {
+            $query->whereMonth('date_envoi', $mois);
+        }
+
         $bordereaux = $query->orderBy('id_bordereau', 'desc')
                             ->paginate($request->get('per_page', 20));
 
@@ -128,9 +136,8 @@ class BordereauController extends Controller
             ], 404);
         }
 
-        // Supprimer les bulletins liés (la cascade au niveau DB supprime les détails)
-        BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
-                    ->delete();
+        // Supprimer les bulletins liés (leurs détails seront supprimés en cascade par la DB)
+        BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)->delete();
 
         $bordereau->delete();
 

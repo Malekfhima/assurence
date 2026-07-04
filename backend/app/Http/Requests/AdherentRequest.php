@@ -13,7 +13,7 @@ class AdherentRequest extends FormRequest
 
     public function rules(): array
     {
-        $id = $this->route('adherent');
+        $id = $this->route('id');
 
         return [
             'matricule' => 'required|integer|unique:adherent,matricule,' . $id . ',id_adherent',
@@ -24,7 +24,7 @@ class AdherentRequest extends FormRequest
             'date_naissance' => 'required|date',
             'date_adhesion' => 'required|date',
             'adresse' => 'required|string|max:500',
-            'cin' => 'required|numeric',
+            'cin' => 'nullable|integer',
             'telephone' => 'required|string|max:30',
             'statut' => 'required|string|max:100',
         ];
