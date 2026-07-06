@@ -389,6 +389,186 @@ function BordereauModal({ selectedBulletins, form, setForm, onSubmit, onClose, l
   );
 }
 
+function ViewBulletinModal({ bulletin, onClose, onEdit, onPreviewPdf }) {
+  const totalMontant = (bulletin.details || []).reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">
+                Bulletin n°{bulletin.numero_bulletin}
+              </h3>
+              <p className="text-xs text-gray-500">
+                {bulletin.adherent?.nom} {bulletin.adherent?.prenom}
+                {bulletin.adherent?.matricule && ` — Matricule ${bulletin.adherent.matricule}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={etatBadge(bulletin.etat)}>{bulletin.etat}</span>
+            <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-5">
+          {/* Info grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div>
+              <span className="text-xs text-gray-500 uppercase tracking-wide">Adhérent</span>
+              <p className="text-sm font-medium text-gray-900 mt-0.5">
+                {bulletin.adherent?.nom} {bulletin.adherent?.prenom}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-gray-500 uppercase tracking-wide">Matricule</span>
+              <p className="text-sm font-medium text-gray-900 mt-0.5">{bulletin.adherent?.matricule || '-'}</p>
+            </div>
+            <div>
+              <span className="text-xs text-gray-500 uppercase tracking-wide">Bénéficiaire</span>
+              <p className="text-sm font-medium text-gray-900 mt-0.5">
+                {bulletin.sous_adherent ? `${bulletin.sous_adherent.prenom} ${bulletin.sous_adherent.nom}` : 'L\'adhérent'}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-gray-500 uppercase tracking-wide">N° Bordereau</span>
+              <p className="text-sm font-medium text-gray-900 mt-0.5">
+                {bulletin.bordereau?.numero_bordereau ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium border border-blue-200">
+                    N°{bulletin.bordereau.numero_bordereau}
+                  </span>
+                ) : (
+                  <span className="text-gray-400">Non affecté</span>
+                )}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-gray-500 uppercase tracking-wide">Date de soin</span>
+              <p className="text-sm font-medium text-gray-900 mt-0.5">{bulletin.date_soin || '-'}</p>
+            </div>
+            <div>
+              <span className="text-xs text-gray-500 uppercase tracking-wide">Type de soin</span>
+              <p className="text-sm font-medium text-gray-900 mt-0.5">{bulletin.type_soin || '-'}</p>
+            </div>
+          </div>
+
+          {/* Détails des soins */}
+          <div>
+            <span className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Détails des soins</span>
+            <div className="mt-2 overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase">Date</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs uppercase">Montant</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase">Type de soin</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {(bulletin.details || []).map((d, i) => (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 text-gray-700">{d.date || '-'}</td>
+                      <td className="px-3 py-2 text-right font-medium text-gray-900">
+                        {Number(d.montant || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                      </td>
+                      <td className="px-3 py-2">
+                        {d.type_soin ? (
+                          <span className="inline-flex px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">{d.type_soin}</span>
+                        ) : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                  {(bulletin.details || []).length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="text-center py-6 text-gray-400 text-xs">Aucun détail de soin</td>
+                    </tr>
+                  )}
+                </tbody>
+                <tfoot className="bg-gray-50 border-t border-gray-200">
+                  <tr>
+                    <td colSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Montant total</td>
+                    <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
+                      {totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {/* Description */}
+          {bulletin.description && (
+            <div>
+              <span className="text-xs text-gray-500 uppercase tracking-wide">Description</span>
+              <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">{bulletin.description}</p>
+            </div>
+          )}
+
+          {/* PDF */}
+          {bulletin.pdf_path && (
+            <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <svg className="w-5 h-5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm text-blue-800 font-medium">Bulletin scanné (PDF)</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onPreviewPdf(bulletin); }}
+                className="ml-auto text-xs px-3 py-1.5 bg-white text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition font-medium"
+              >
+                Afficher le PDF
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-5 border-t border-gray-200 flex items-center justify-between">
+          <p className="text-xs text-gray-400">
+            {bulletin.id_bordereau ? 'Bulletin lié à un bordereau' : 'Bulletin non lié à un bordereau'}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { onEdit(bulletin); }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Modifier
+            </button>
+            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition">
+              Fermer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Définition des couleurs pour les badges d'état (Doit être avant le composant principal)
+const etatBadge = (etat) => {
+  const styles = {
+    'En attente': 'bg-amber-50 text-amber-700 border-amber-200',
+    'Validé': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'Rejeté': 'bg-red-50 text-red-700 border-red-200',
+  };
+  return `inline-flex px-2 py-1 rounded-full text-xs font-medium border ${styles[etat] || 'bg-gray-50 text-gray-600 border-gray-200'}`;
+};
+
 export default function Bulletins() {
   const [bulletins, setBulletins] = useState([]);
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
@@ -402,6 +582,7 @@ export default function Bulletins() {
   const [sousAdherents, setSousAdherents] = useState([]);
   const [pdfPreview, setPdfPreview] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
+  const [viewBulletin, setViewBulletin] = useState(null);
   const [form, setForm] = useState({ id_adherent: '', id_sous_adherent: '', numero_bulletin: '', etat: 'En attente', matricule_saisi: '' });
   const [details, setDetails] = useState([]);
   const [errors, setErrors] = useState({});
@@ -542,6 +723,12 @@ export default function Bulletins() {
   };
 
   const closeModal = () => setModal(null);
+  const closeViewBulletin = () => setViewBulletin(null);
+
+  const handleViewToEdit = (bulletin) => {
+    setViewBulletin(null);
+    openModal('edit', bulletin);
+  };
 
   const handleFormChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -696,15 +883,6 @@ export default function Bulletins() {
     }
   };
 
-  const etatBadge = (etat) => {
-    const styles = {
-      'En attente': 'bg-amber-50 text-amber-700 border-amber-200',
-      'Validé': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      'Rejeté': 'bg-red-50 text-red-700 border-red-200',
-    };
-    return `inline-flex px-2 py-1 rounded-full text-xs font-medium border ${styles[etat] || 'bg-gray-50 text-gray-600 border-gray-200'}`;
-  };
-
   // Filtrer les bulletins déjà liés à un bordereau (ne pas les afficher)
   const bulletinsDisponibles = bulletins.filter(b => !b.id_bordereau);
 
@@ -834,7 +1012,7 @@ export default function Bulletins() {
               {bulletinsDisponibles.map((b) => {
                 const isChecked = selectedBulletinIds.includes(b.id_bulletin);
                 return (
-                  <tr key={b.id_bulletin} onClick={() => openModal('edit', b)} className={`cursor-pointer hover:bg-gray-50 transition ${isChecked ? 'bg-blue-50/50' : ''}`}>
+                  <tr key={b.id_bulletin} onClick={() => setViewBulletin(b)} className={`cursor-pointer hover:bg-gray-50 transition ${isChecked ? 'bg-blue-50/50' : ''}`}>
                     <td className="w-10 px-2 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
@@ -957,6 +1135,15 @@ export default function Bulletins() {
           onSubmit={handleCreateBordereau}
           onClose={() => setShowBordereauModal(false)}
           loading={bordereauLoading}
+        />
+      )}
+
+      {viewBulletin && (
+        <ViewBulletinModal
+          bulletin={viewBulletin}
+          onClose={closeViewBulletin}
+          onEdit={handleViewToEdit}
+          onPreviewPdf={setPdfPreview}
         />
       )}
 
