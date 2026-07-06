@@ -73,7 +73,7 @@ class BulletinSoinController extends Controller
         $totalMontant = collect($detailsData)->sum('montant');
         $data['montant_depense'] = $totalMontant;
         if (!isset($data['date_soin']) || empty($data['date_soin'])) {
-            $data['date_soin'] = $detailsData[0]['date'] ?? null;
+            $data['date_soin'] = $detailsData[0]['date'] ?? date('Y-m-d');
         }
 
         $bulletin = BulletinSoin::create($data);
@@ -139,7 +139,7 @@ class BulletinSoinController extends Controller
         $totalMontant = collect($detailsData)->sum('montant');
         $data['montant_depense'] = $totalMontant;
         if (!isset($data['date_soin']) || empty($data['date_soin'])) {
-            $data['date_soin'] = $detailsData[0]['date'] ?? null;
+            $data['date_soin'] = $detailsData[0]['date'] ?? date('Y-m-d');
         }
 
         $bulletin->update($data);

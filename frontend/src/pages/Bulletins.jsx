@@ -857,7 +857,8 @@ export default function Bulletins() {
       }
       setModal(null);
       setPdfFile(null);
-      fetchBulletins(meta.current_page);
+      // Revenir à la page 1 pour afficher le nouveau bulletin
+      fetchBulletins(1);
     } catch (err) {
       const serverErrors = err.response?.data?.errors;
       if (serverErrors) {

@@ -146,4 +146,61 @@ class BordereauController extends Controller
             'message' => 'Bordereau supprimé avec succès.',
         ]);
     }
+
+    public function search(Request $request, int $id): JsonResponse
+    {
+        $bordereau = Bordereau::find($id);
+
+        if (!$bordereau) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bordereau introuvable.',
+            ], 404);
+        }
+
+        $q = $request->get('q', '');
+
+        $query = BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
+            ->with(['adherent:id_adherent,nom,prenom,matricule', 'sousAdherent:id_sous_adherent,nom,prenom', 'details']);
+
+        if (!empty($q)) {
+            $query->where(function ($sub) use ($q) {
+                // Recherche par numéro de bulletin
+                $sub->where('numero_bulletin', 'LIKE', "%{$q}%");
+
+                // Recherche par matricule de l'adhérent (via une sous-requête)
+                $sub->orWhereHas('adherent', function ($a) use ($q) {
+                    $a->where('matricule', 'LIKE', "%{$q}%");
+                });
+
+                // Recherche par nom/prénom de l'adhérent
+                $sub->orWhereHas('adherent', function ($a) use ($q) {
+                    $a->where('nom', 'LIKE', "%{$q}%");
+                });
+                $sub->orWhereHas('adherent', function ($a) use ($q) {
+                    $a->where('prenom', 'LIKE', "%{$q}%");
+                });
+            });
+        }
+
+        $bulletins = $query->orderBy('id_bulletin', 'desc')->get();
+
+        // Recalculer les stats filtrées
+        $grouped = collect($bulletins)->groupBy('etat');
+        $stats = [
+            'en_attente' => ($grouped->get('En attente', collect()))->count(),
+            'valide'     => ($grouped->get('Validé', collect()))->count(),
+            'rejete'     => ($grouped->get('Rejeté', collect()))->count(),
+            'total'      => count($bulletins),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'bulletins' => $bulletins,
+                'stats' => $stats,
+                'query' => $q,
+            ],
+        ]);
+    }
 }

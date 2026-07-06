@@ -19,6 +19,12 @@ const etatBulletinBadge = (etat) => {
   return `inline-flex px-2 py-1 rounded-full text-xs font-medium border ${styles[etat] || 'bg-gray-50 text-gray-600 border-gray-200'}`;
 };
 
+const TYPE_SOIN_OPTIONS = [
+  'C1', 'C2', 'C3', 'V1', 'V2', 'V3', 'PH', 'PRO', 'B', 'KC', 'MS',
+  'R', 'KE', 'AM', 'OPM', 'OPV', 'D1', 'D2', 'HH', 'HC', 'S.DENT',
+  'LABO', 'RADIO', 'Naissance',
+];
+
 function ConfirmModal({ open, onClose, onConfirm, message, loading }) {
   if (!open) return null;
   return (
@@ -253,7 +259,7 @@ function PdfPreviewModal({ bulletin, onClose }) {
   );
 }
 
-function BulletinDetailView({ bulletin, onBack, onPreviewPdf }) {
+function BulletinDetailView({ bulletin, onBack, onPreviewPdf, onEditBulletin }) {
   const totalMontant = (bulletin.details || []).reduce((sum, d) => sum + Number(d.montant || 0), 0);
 
   return (
@@ -292,6 +298,18 @@ function BulletinDetailView({ bulletin, onBack, onPreviewPdf }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
                 Aperçu
+              </button>
+            )}
+            {onEditBulletin && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onEditBulletin(bulletin); }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition border border-amber-200"
+                title="Modifier le bulletin"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Modifier
               </button>
             )}
             <p className="text-lg font-bold text-gray-900">{Number(bulletin.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
@@ -371,6 +389,102 @@ function BordereauDetailModal({ bordereau, onClose, onEdit }) {
   const [loading, setLoading] = useState(true);
   const [selectedBulletin, setSelectedBulletin] = useState(null);
   const [pdfPreview, setPdfPreview] = useState(null);
+  const [recherche, setRecherche] = useState('');
+
+  // Edit bulletin state
+  const [editBulletin, setEditBulletin] = useState(null);
+  const [editForm, setEditForm] = useState({ numero_bulletin: '', etat: 'En attente' });
+  const [editDetails, setEditDetails] = useState([]);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  const startEditBulletin = (bulletin) => {
+    setEditForm({
+      numero_bulletin: bulletin.numero_bulletin || '',
+      etat: bulletin.etat || 'En attente',
+    });
+    setEditDetails((bulletin.details || []).map(d => ({
+      ...d,
+      montant: d.montant !== null && d.montant !== undefined ? String(d.montant) : '',
+    })));
+    setEditBulletin(bulletin);
+  };
+
+  const cancelEditBulletin = () => {
+    setEditBulletin(null);
+    setEditForm({ numero_bulletin: '', etat: 'En attente' });
+    setEditDetails([]);
+  };
+
+  const handleEditFormChange = (field, value) => {
+    setEditForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleEditDetailChange = (index, field, value) => {
+    setEditDetails(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleEditAddDetail = () => {
+    setEditDetails(prev => [...prev, { date: '', montant: '', type_soin: '' }]);
+  };
+
+  const handleEditRemoveDetail = (index) => {
+    setEditDetails(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleEditSaveBulletin = async (e) => {
+    e.preventDefault();
+
+    const validDetails = editDetails
+      .filter(d => parseFloat(d.montant) > 0)
+      .map(d => ({
+        ...d,
+        montant: d.montant === '' || d.montant === undefined || d.montant === null ? '0' : d.montant,
+      }));
+
+    if (validDetails.length === 0) return;
+
+    const firstDetail = validDetails[0] || {};
+    const dateSoin = firstDetail.date || '';
+    const typeSoin = firstDetail.type_soin || '';
+
+    setEditLoading(true);
+    setEditError('');
+    try {
+      const payload = {
+        id_adherent: editBulletin.id_adherent,
+        id_sous_adherent: editBulletin.id_sous_adherent || '',
+        numero_bulletin: editForm.numero_bulletin,
+        date_soin: dateSoin,
+        type_soin: typeSoin,
+        etat: editForm.etat,
+        details: validDetails,
+      };
+
+      await api.post(`/bulletins/${editBulletin.id_bulletin}`, payload);
+
+      // Rafraîchir les bulletins du bordereau
+      const res = await api.get(`/bordereaux/${bordereau.id_bordereau}`);
+      if (res.data.success) {
+        const bs = res.data.data.bulletinSoins || res.data.data.bulletin_soins || [];
+        setBulletins(bs);
+      }
+
+      cancelEditBulletin();
+      setSelectedBulletin(null);
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Erreur lors de la modification du bulletin.';
+      setEditError(msg);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+
 
   useEffect(() => {
     if (!bordereau) return;
@@ -396,10 +510,168 @@ function BordereauDetailModal({ bordereau, onClose, onEdit }) {
     }
   }, [bordereau]);
 
-  const stats = bordereau.stats_bulletins || { en_attente: 0, valide: 0, rejete: 0, total: 0 };
+  // Filtrer les bulletins côté client selon la recherche
+  const bulletinsFiltres = bulletins.filter(bs => {
+    if (!recherche.trim()) return true;
+    const q = recherche.trim().toLowerCase();
+    const mat = (bs.adherent?.matricule || '').toLowerCase();
+    const num = (bs.numero_bulletin || '').toLowerCase();
+    const nom = (bs.adherent?.nom || '').toLowerCase();
+    const prenom = (bs.adherent?.prenom || '').toLowerCase();
+    return mat.includes(q) || num.includes(q) || nom.includes(q) || prenom.includes(q);
+  });
 
-  // Si un bulletin est sélectionné, afficher ses détails
+  // Stats filtrées
+  const statsFiltres = (() => {
+    const grouped = bulletinsFiltres.reduce((acc, bs) => {
+      const etat = bs.etat || 'En attente';
+      acc[etat] = (acc[etat] || 0) + 1;
+      return acc;
+    }, {});
+    return {
+      en_attente: grouped['En attente'] || 0,
+      valide: grouped['Validé'] || 0,
+      rejete: grouped['Rejeté'] || 0,
+      total: bulletinsFiltres.length,
+    };
+  })();
+
+  // Utiliser les stats filtrées si recherche active, sinon celles du bordereau
+  const stats = recherche.trim() ? statsFiltres : (bordereau.stats_bulletins || { en_attente: 0, valide: 0, rejete: 0, total: 0 });
+
+  // Si un bulletin est sélectionné, afficher ses détails (mode édition ou vue)
   if (selectedBulletin) {
+    if (editBulletin) {
+      const totalMontant = editDetails.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+      const hasError = editDetails.filter(d => parseFloat(d.montant) > 0).length === 0;
+
+      return (
+        <>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="p-5 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Modifier le bulletin N°{editBulletin.numero_bulletin}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Bordereau N°{bordereau.numero_bordereau}</p>
+                  </div>
+                </div>
+                <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
+              </div>
+
+              <form onSubmit={handleEditSaveBulletin} className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bulletin <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      value={editForm.numero_bulletin}
+                      onChange={(e) => handleEditFormChange('numero_bulletin', e.target.value)}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">État</label>
+                    <select
+                      value={editForm.etat}
+                      onChange={(e) => handleEditFormChange('etat', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="En attente">En attente</option>
+                      <option value="Validé">Validé</option>
+                      <option value="Rejeté">Rejeté</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Tableau des détails */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-gray-700">Détails des soins <span className="text-red-500">*</span></label>
+                    <button type="button" onClick={handleEditAddDetail} className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Ajouter une ligne
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase w-28">Date</th>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase">Montant</th>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase w-36">Type de soin</th>
+                          <th className="text-center px-3 py-2 font-medium text-gray-600 text-xs uppercase w-10"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {editDetails.map((d, i) => (
+                          <tr key={i} className="hover:bg-gray-50">
+                            <td className="px-3 py-1.5">
+                              <input type="date" value={d.date} onChange={(e) => handleEditDetailChange(i, 'date', e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none" />
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <input type="text" inputMode="decimal" value={d.montant} onChange={(e) => { let val = e.target.value.replace(/[^0-9.,]/g, ''); val = val.replace(',', '.'); handleEditDetailChange(i, 'montant', val); }} placeholder="Montant" className="w-full max-w-[120px] px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none text-right" />
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <select value={d.type_soin} onChange={(e) => handleEditDetailChange(i, 'type_soin', e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                                <option value="">Sélectionner</option>
+                                {TYPE_SOIN_OPTIONS.map((opt) => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-3 py-1.5 text-center">
+                              <button type="button" onClick={() => handleEditRemoveDetail(i)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition" title="Supprimer">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {editDetails.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="text-center py-6 text-gray-400 text-xs">Aucune ligne. Cliquez sur "Ajouter une ligne" pour commencer.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                      <tfoot className="bg-gray-50 border-t border-gray-200">
+                        <tr>
+                          <td colSpan={3} className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Montant total</td>
+                          <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  {hasError && <p className="text-xs text-red-500 mt-2">Ajoutez au moins un détail de soin avec un montant supérieur à 0.</p>}
+                  {editError && <p className="text-xs text-red-500 mt-2">{editError}</p>}
+                </div>
+
+                {/* Boutons */}
+                <div className="pt-2 flex justify-end gap-3 border-t border-gray-200">
+                  <button type="button" onClick={cancelEditBulletin} disabled={editLoading} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition disabled:opacity-50">Annuler</button>
+                  <button type="submit" disabled={editLoading || hasError} className="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition disabled:opacity-50 flex items-center gap-2">
+                    {editLoading && (
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    )}
+                    Enregistrer les modifications
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </>
+      );
+    }
+
     return (
       <>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -420,7 +692,7 @@ function BordereauDetailModal({ bordereau, onClose, onEdit }) {
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
             </div>
 
-            <BulletinDetailView bulletin={selectedBulletin} onBack={() => setSelectedBulletin(null)} onPreviewPdf={setPdfPreview} />
+            <BulletinDetailView bulletin={selectedBulletin} onBack={() => setSelectedBulletin(null)} onPreviewPdf={setPdfPreview} onEditBulletin={startEditBulletin} />
 
             {/* Footer */}
             <div className="p-4 border-t border-gray-200 flex justify-end flex-shrink-0 bg-gray-50/50">
@@ -497,6 +769,37 @@ function BordereauDetailModal({ bordereau, onClose, onEdit }) {
               <span className="text-gray-700">En attente</span>
               <span className="font-semibold text-amber-700">{stats.en_attente}</span>
             </span>
+            {recherche.trim() && (
+              <span className="ml-auto text-xs text-gray-400 italic">
+                {bulletinsFiltres.length} résultat(s) sur {bulletins.length}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Barre de recherche */}
+        <div className="px-5 py-2.5 border-b border-gray-100 flex-shrink-0">
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Rechercher par matricule adhérent, numéro bulletin, nom ou prénom…"
+              className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            {recherche && (
+              <button
+                onClick={() => setRecherche('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -516,9 +819,17 @@ function BordereauDetailModal({ bordereau, onClose, onEdit }) {
               </svg>
               <p className="text-sm text-gray-400">Aucun bulletin associé à ce bordereau.</p>
             </div>
+          ) : bulletinsFiltres.length === 0 ? (
+            <div className="text-center py-12">
+              <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-sm text-gray-500">Aucun bulletin ne correspond à votre recherche.</p>
+              <p className="text-xs text-gray-400 mt-1">Essayez un matricule ou un numéro de bulletin différent.</p>
+            </div>
           ) : (
             <div className="space-y-2">
-              {bulletins.map((bs) => (
+              {bulletinsFiltres.map((bs) => (
                 <div
                   key={bs.id_bulletin}
                   onClick={() => setSelectedBulletin(bs)}
