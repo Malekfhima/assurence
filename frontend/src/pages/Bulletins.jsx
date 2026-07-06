@@ -834,7 +834,7 @@ export default function Bulletins() {
               {bulletinsDisponibles.map((b) => {
                 const isChecked = selectedBulletinIds.includes(b.id_bulletin);
                 return (
-                  <tr key={b.id_bulletin} className={`hover:bg-gray-50 transition ${isChecked ? 'bg-blue-50/50' : ''}`}>
+                  <tr key={b.id_bulletin} onClick={() => openModal('edit', b)} className={`cursor-pointer hover:bg-gray-50 transition ${isChecked ? 'bg-blue-50/50' : ''}`}>
                     <td className="w-10 px-2 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
@@ -854,7 +854,7 @@ export default function Bulletins() {
                     <td className="px-4 py-3 text-center">
                       {b.pdf_path ? (
                         <button
-                          onClick={() => setPdfPreview(b)}
+                          onClick={(e) => { e.stopPropagation(); setPdfPreview(b); }}
                           className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition"
                           title="Aperçu du PDF"
                         >
@@ -874,10 +874,10 @@ export default function Bulletins() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => openModal('edit', b)} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Modifier">
+                        <button onClick={(e) => { e.stopPropagation(); openModal('edit', b); }} className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Modifier">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
-                        <button onClick={() => handleDelete(b.id_bulletin)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Supprimer">
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(b.id_bulletin); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Supprimer">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       </div>
