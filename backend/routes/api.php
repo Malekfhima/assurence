@@ -9,7 +9,7 @@ use App\Http\Controllers\Api\SousAdherentController;
 use Illuminate\Support\Facades\Route;
 
 // --- Authentification ---
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->name('login');
 
 // --- Routes protégées par Sanctum ---
 Route::middleware('auth:sanctum')->group(function () {
