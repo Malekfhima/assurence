@@ -650,12 +650,20 @@ export default function Bulletins() {
     return null;
   };
 
-  useEffect(() => { fetchBulletins(); fetchAdherents(); }, []);
+  // Force refresh counter - incremented after create/edit/delete to ensure bulletins reload
+  const [refreshKey, setRefreshKey] = useState(0);
 
+  // Initial load + force refresh after create/edit/delete
+  useEffect(() => {
+    fetchBulletins();
+    fetchAdherents();
+  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced fetch for search/filter changes
   useEffect(() => {
     const timer = setTimeout(() => fetchBulletins(), 300);
     return () => clearTimeout(timer);
-  }, [search, etatFilter]);
+  }, [search, etatFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset selection when filters change
   useEffect(() => {
@@ -857,7 +865,10 @@ export default function Bulletins() {
       }
       setModal(null);
       setPdfFile(null);
-      fetchBulletins(meta.current_page);
+      setSearch('');
+      setEtatFilter('');
+      // Revenir à la page 1 pour afficher le nouveau bulletin
+      setRefreshKey(prev => prev + 1);
     } catch (err) {
       const serverErrors = err.response?.data?.errors;
       if (serverErrors) {
@@ -866,6 +877,9 @@ export default function Bulletins() {
           fieldErrors[field] = serverErrors[field][0];
         });
         setErrors(fieldErrors);
+        // Afficher une notification pour que l'utilisateur sache que la sauvegarde a échoué
+        const firstError = Object.values(serverErrors).flat()[0];
+        showNotif(firstError || 'Erreur de validation. Vérifiez les champs en rouge.', 'error');
       } else {
         showNotif(err.response?.data?.message || 'Erreur lors de la sauvegarde.', 'error');
       }
@@ -877,7 +891,9 @@ export default function Bulletins() {
     try {
       await api.delete(`/bulletins/${id}`);
       showNotif('Bulletin supprimé avec succès.');
-      fetchBulletins();
+      setSearch('');
+      setEtatFilter('');
+      setRefreshKey(prev => prev + 1);
     } catch (err) {
       showNotif('Erreur lors de la suppression.', 'error');
     }

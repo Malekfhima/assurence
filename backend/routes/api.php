@@ -49,6 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/bordereaux', [BordereauController::class, 'index']);
     Route::post('/bordereaux', [BordereauController::class, 'store']);
     Route::get('/bordereaux/{id}', [BordereauController::class, 'show']);
+    Route::get('/bordereaux/{id}/search', [BordereauController::class, 'search']);
     Route::put('/bordereaux/{id}', [BordereauController::class, 'update']);
     Route::delete('/bordereaux/{id}', [BordereauController::class, 'destroy']);
 
