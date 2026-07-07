@@ -52,4 +52,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/bordereaux/{id}/search', [BordereauController::class, 'search']);
     Route::put('/bordereaux/{id}', [BordereauController::class, 'update']);
     Route::delete('/bordereaux/{id}', [BordereauController::class, 'destroy']);
+
+    // Envoyer un bordereau
+    Route::post('/bordereaux/{id}/envoyer', [BordereauController::class, 'envoyer']);
+
+    // Réponse au bordereau (upload fichier CSV/Excel + PDF)
+    Route::post('/bordereaux/{id}/reponse', [BordereauController::class, 'reponse']);
 });
+
