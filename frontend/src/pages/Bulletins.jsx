@@ -657,11 +657,11 @@ export default function Bulletins() {
     return () => clearTimeout(timer);
   }, [search, etatFilter]);
 
-  // Reset selection when page changes
+  // Reset selection when filters change
   useEffect(() => {
     setSelectedBulletinIds([]);
     setSelectAll(false);
-  }, [meta.current_page]);
+  }, [search, etatFilter]);
 
   // Mettre à jour les sous-adhérents quand l'adhérent change (mode édition)
   useEffect(() => {
@@ -891,18 +891,42 @@ export default function Bulletins() {
   const selectableBulletins = bulletinsDisponibles;
 
   const handleToggleSelect = (id) => {
-    setSelectedBulletinIds(prev =>
-      prev.includes(id) ? prev.filter(bid => bid !== id) : [...prev, id]
-    );
+    setSelectedBulletinIds(prev => {
+      if (prev.includes(id)) {
+        // If unchecking while selectAll was active, reset selectAll
+        return prev.filter(bid => bid !== id);
+      }
+      return [...prev, id];
+    });
+    // Reset selectAll if user manually unchecks an item
+    if (selectedBulletinIds.includes(id) && selectAll) {
+      setSelectAll(false);
+    }
   };
 
-  const handleSelectAll = () => {
+  const handleSelectAll = async () => {
     if (selectAll) {
       setSelectedBulletinIds([]);
-    } else {
-      setSelectedBulletinIds(selectableBulletins.map(b => b.id_bulletin));
+      setSelectAll(false);
+      return;
     }
-    setSelectAll(!selectAll);
+    try {
+      // Fetch ALL bulletins across all pages to select them all
+      const params = { per_page: 10000 };
+      if (search) params.search = search;
+      if (etatFilter) params.etat = etatFilter;
+      const res = await api.get('/bulletins', { params });
+      if (res.data.success) {
+        const allBulletins = res.data.data || [];
+        const allIds = allBulletins
+          .filter(b => !b.id_bordereau)
+          .map(b => b.id_bulletin);
+        setSelectedBulletinIds(allIds);
+        setSelectAll(true);
+      }
+    } catch (err) {
+      showNotif('Erreur lors de la sélection de tous les bulletins.', 'error');
+    }
   };
 
   const openBordereauModal = () => {
