@@ -366,7 +366,154 @@ function BulletinDetailView({ bulletin, onBack, onPreviewPdf }) {
   );
 }
 
-function BordereauDetailModal({ bordereau, onClose, onEdit }) {
+function BordereauReponseModal({ bordereau, onClose, onSubmitReponse, loading }) {
+  const [fichierDonnees, setFichierDonnees] = useState(null);
+  const [fichierReponse, setFichierReponse] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [errors, setErrors] = useState('');
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setFichierDonnees(file);
+    setErrors('');
+    setPreview(null);
+
+    // Essayer de prévisualiser le CSV
+    if (file.type === 'text/csv' || file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const lines = ev.target.result.split('\n').filter(l => l.trim());
+        if (lines.length > 0) {
+          const header = lines[0].split(',').map(h => h.trim());
+          const dataRows = lines.slice(1, 6).map(row => row.split(',').map(c => c.trim()));
+          setPreview({ header, rows: dataRows, total: lines.length - 1 });
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!fichierDonnees) {
+      setErrors('Veuillez sélectionner un fichier CSV.');
+      return;
+    }
+    onSubmitReponse(fichierDonnees, fichierReponse);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Réponse du bordereau</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Bordereau N°{bordereau.numero_bordereau}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {/* Format indication */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+            <p className="font-medium mb-1">📄 Format du fichier CSV attendu :</p>
+            <code className="block bg-blue-100/50 px-2 py-1 rounded text-xs">
+              numero_bulletin,etat[,montant]<br />
+              BR-001,Validé,150.000<br />
+              BR-002,Rejeté<br />
+              BR-003,Validé,200.000
+            </code>
+            <p className="mt-1 text-blue-600">État accepté : Validé ou Rejeté</p>
+          </div>
+
+          {/* Fichier données */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+              Fichier CSV des résultats <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type="file"
+                accept=".csv,.txt"
+                onChange={handleFileChange}
+                className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#0F2942] file:text-white hover:file:bg-[#1A3A5C] file:cursor-pointer file:transition cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* Preview */}
+          {preview && (
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
+              <p className="text-xs font-medium text-gray-700 mb-2">Aperçu ({preview.total} ligne(s)) :</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      {preview.header.map((h, i) => (
+                        <th key={i} className="px-2 py-1 text-left font-medium text-gray-600">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.rows.map((row, i) => (
+                      <tr key={i} className="border-t border-gray-200">
+                        {row.map((cell, j) => (
+                          <td key={j} className="px-2 py-1 text-gray-700">{cell}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {preview.total > 5 && (
+                <p className="text-xs text-gray-400 mt-1">... et {preview.total - 5} ligne(s) supplémentaire(s)</p>
+              )}
+            </div>
+          )}
+
+          {/* Fichier réponse PDF (optionnel) */}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+              Document réponse PDF <span className="text-gray-400">(optionnel)</span>
+            </label>
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={(e) => setFichierReponse(e.target.files[0])}
+              className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-600 file:text-white hover:file:bg-gray-700 file:cursor-pointer file:transition cursor-pointer"
+            />
+          </div>
+
+          {errors && <p className="text-xs text-red-500">{errors}</p>}
+
+          <div className="pt-2 flex justify-end gap-3">
+            <button type="button" onClick={onClose} disabled={loading} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition disabled:opacity-50">Annuler</button>
+            <button type="submit" disabled={loading || !fichierDonnees} className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 flex items-center gap-2">
+              {loading && (
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+              Traiter la réponse
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onReponse, envoyerLoading }) {
   const [bulletins, setBulletins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBulletin, setSelectedBulletin] = useState(null);
@@ -464,6 +611,56 @@ function BordereauDetailModal({ bordereau, onClose, onEdit }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Bouton Envoyer (quand le bordereau est en attente) */}
+            {bordereau.statut === 'En attente' && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onEnvoyer?.(bordereau); }}
+                disabled={envoyerLoading}
+                className="px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition flex items-center gap-1 disabled:opacity-50"
+                title="Envoyer le bordereau"
+              >
+                {envoyerLoading ? (
+                  <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                )}
+                Envoyer
+              </button>
+            )}
+            {/* Bouton Réponse (quand le bordereau est envoyé) */}
+            {bordereau.statut === 'Envoyé' && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onReponse?.(bordereau); }}
+                className="px-3 py-1.5 text-xs text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition flex items-center gap-1"
+                title="Réceptionner la réponse"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Réponse
+              </button>
+            )}
+            {/* Voir le fichier réponse (quand traité) */}
+            {bordereau.statut === 'Traité' && bordereau.fichier_reponse && (
+              <a
+                href={`/storage/${bordereau.fichier_reponse}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition flex items-center gap-1"
+                title="Voir le fichier réponse"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Fichier réponse
+              </a>
+            )}
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(bordereau); }}
               className="px-3 py-1.5 text-xs text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition flex items-center gap-1"
@@ -607,6 +804,13 @@ export default function Bordereaux() {
   // Detail modal state
   const [detailTarget, setDetailTarget] = useState(null);
 
+  // Envoyer
+  const [envoyerLoading, setEnvoyerLoading] = useState(false);
+
+  // Réponse modal state
+  const [reponseTarget, setReponseTarget] = useState(null);
+  const [reponseLoading, setReponseLoading] = useState(false);
+
   // Filter state
   const [filterAnnee, setFilterAnnee] = useState('');
   const [filterMois, setFilterMois] = useState('');
@@ -711,6 +915,54 @@ export default function Bordereaux() {
       showNotif(err.response?.data?.message || 'Erreur lors de la modification.', 'error');
     } finally {
       setEditLoading(false);
+    }
+  };
+
+  const handleEnvoyer = async (bordereau) => {
+    setEnvoyerLoading(true);
+    try {
+      await api.post(`/bordereaux/${bordereau.id_bordereau}/envoyer`);
+      showNotif('Bordereau envoyé avec succès.');
+      setDetailTarget(null);
+      fetchData();
+    } catch (err) {
+      showNotif(err.response?.data?.message || 'Erreur lors de l\'envoi.', 'error');
+    } finally {
+      setEnvoyerLoading(false);
+    }
+  };
+
+  const openReponseModal = (bordereau) => {
+    setReponseTarget(bordereau);
+    setDetailTarget(null);
+  };
+
+  const handleReponse = async (fichierDonnees, fichierReponse) => {
+    if (!reponseTarget) return;
+    setReponseLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('fichier_donnees', fichierDonnees);
+      if (fichierReponse) {
+        formData.append('fichier_reponse', fichierReponse);
+      }
+
+      const res = await api.post(`/bordereaux/${reponseTarget.id_bordereau}/reponse`, formData);
+
+      const msg = res.data.message || 'Réponse traitée avec succès.';
+      const warnings = res.data.warnings;
+      if (warnings && warnings.length > 0) {
+        showNotif(msg + ' (' + warnings.length + ' avertissement(s))', 'success');
+      } else {
+        showNotif(msg, 'success');
+      }
+      setReponseTarget(null);
+      fetchData();
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.response?.data?.errors?.[0] || 'Erreur lors du traitement de la réponse.';
+      showNotif(errMsg, 'error');
+    } finally {
+      setReponseLoading(false);
     }
   };
 
@@ -933,6 +1185,19 @@ export default function Bordereaux() {
           bordereau={detailTarget}
           onClose={() => setDetailTarget(null)}
           onEdit={openEditModal}
+          onEnvoyer={handleEnvoyer}
+          onReponse={openReponseModal}
+          envoyerLoading={envoyerLoading}
+        />
+      )}
+
+      {/* Réponse modal */}
+      {reponseTarget && (
+        <BordereauReponseModal
+          bordereau={reponseTarget}
+          onClose={() => setReponseTarget(null)}
+          onSubmitReponse={handleReponse}
+          loading={reponseLoading}
         />
       )}
 

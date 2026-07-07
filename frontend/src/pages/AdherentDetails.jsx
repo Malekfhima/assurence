@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 
-const lienParenteOptions = ['Fils', 'Fille', 'Conjoint', 'Enfant'];
+const lienParenteOptions = ['Fils', 'Fille', 'Conjoint'];
 
 const resolveLienParente = (sa) => {
   if (sa.display_lien_parente) return sa.display_lien_parente;
