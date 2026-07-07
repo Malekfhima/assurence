@@ -61,6 +61,14 @@ class BulletinSoinController extends Controller
         $detailsData = $data['details'] ?? [];
         unset($data['details']);
 
+        // Forcer null pour les champs optionnels qui arrivent comme chaîne vide
+        if (isset($data['id_sous_adherent']) && $data['id_sous_adherent'] === '') {
+            $data['id_sous_adherent'] = null;
+        }
+        if (isset($data['id_bordereau']) && $data['id_bordereau'] === '') {
+            $data['id_bordereau'] = null;
+        }
+
         // Gérer l'upload du PDF
         if ($request->hasFile('pdf')) {
             $file = $request->file('pdf');
@@ -122,6 +130,14 @@ class BulletinSoinController extends Controller
         $data = $request->validated();
         $detailsData = $data['details'] ?? [];
         unset($data['details']);
+
+        // Forcer null pour les champs optionnels qui arrivent comme chaîne vide
+        if (isset($data['id_sous_adherent']) && $data['id_sous_adherent'] === '') {
+            $data['id_sous_adherent'] = null;
+        }
+        if (isset($data['id_bordereau']) && $data['id_bordereau'] === '') {
+            $data['id_bordereau'] = null;
+        }
 
         // Gérer l'upload du PDF (remplace l'ancien)
         if ($request->hasFile('pdf')) {
