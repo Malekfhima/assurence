@@ -601,12 +601,14 @@ export default function Bulletins() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const fetchBulletins = async (page = 1) => {
+  const fetchBulletins = async (page = 1, searchOverride, etatFilterOverride) => {
     setLoading(true);
     try {
       const params = { page, per_page: 15 };
-      if (search) params.search = search;
-      if (etatFilter) params.etat = etatFilter;
+      const searchVal = searchOverride !== undefined ? searchOverride : search;
+      const etatVal = etatFilterOverride !== undefined ? etatFilterOverride : etatFilter;
+      if (searchVal) params.search = searchVal;
+      if (etatVal) params.etat = etatVal;
       const res = await api.get('/bulletins', { params });
       if (res.data.success) {
         setBulletins(res.data.data);
@@ -650,14 +652,11 @@ export default function Bulletins() {
     return null;
   };
 
-  // Force refresh counter - incremented after create/edit/delete to ensure bulletins reload
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  // Initial load + force refresh after create/edit/delete
+  // Initial load of bulletins and adherents on mount
   useEffect(() => {
     fetchBulletins();
     fetchAdherents();
-  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced fetch for search/filter changes
   useEffect(() => {
@@ -865,10 +864,12 @@ export default function Bulletins() {
       }
       setModal(null);
       setPdfFile(null);
+      setSelected(null);
       setSearch('');
       setEtatFilter('');
       // Revenir à la page 1 pour afficher le nouveau bulletin
-      setRefreshKey(prev => prev + 1);
+      // Passer searchOverride='' et etatFilterOverride='' explicitement
+      fetchBulletins(1, '', '');
     } catch (err) {
       const serverErrors = err.response?.data?.errors;
       if (serverErrors) {
@@ -893,13 +894,15 @@ export default function Bulletins() {
       showNotif('Bulletin supprimé avec succès.');
       setSearch('');
       setEtatFilter('');
-      setRefreshKey(prev => prev + 1);
+      setSelected(null);
+      // Forcer le rechargement avec recherche vide
+      fetchBulletins(1, '', '');
     } catch (err) {
       showNotif('Erreur lors de la suppression.', 'error');
     }
   };
 
-  // Filtrer les bulletins déjà liés à un bordereau (ne pas les afficher)
+  // Filtrer les bulletins déjà liés à un bordereau
   const bulletinsDisponibles = bulletins.filter(b => !b.id_bordereau);
 
   // --- Bordereau handlers ---
@@ -965,7 +968,10 @@ export default function Bulletins() {
       setSelectedBulletinIds([]);
       setSelectAll(false);
       setBordereauForm({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
-      fetchBulletins(meta.current_page);
+      // Revenir à la page 1 pour afficher les bulletins restants
+      setSearch('');
+      setEtatFilter('');
+      fetchBulletins(1, '', '');
     } catch (err) {
       showNotif(err.response?.data?.message || 'Erreur lors de la création du bordereau.', 'error');
     } finally {
@@ -984,7 +990,7 @@ export default function Bulletins() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Bulletins de soin</h1>
-          <p className="text-sm text-gray-500 mt-1">{meta.total} bulletin(s) au total</p>
+          <p className="text-sm text-gray-500 mt-1">{bulletinsDisponibles.length} bulletin(s) au total</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -1107,7 +1113,7 @@ export default function Bulletins() {
                 <tr><td colSpan={8} className="text-center py-8 text-gray-500">
                   {bulletins.length > 0
                     ? 'Tous les bulletins sont rattachés à un bordereau.'
-                    : 'Aucun bulletin trouvé'}
+                    : '0 bulletin'}
                 </td></tr>
               )}
             </tbody>

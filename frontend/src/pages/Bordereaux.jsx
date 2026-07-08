@@ -76,7 +76,7 @@ function BordereauCreateModal({ bulletinsDisponibles, form, setForm, selectedBul
             {(() => {
               const items = editMode ? (allBulletins || []) : bulletinsDisponibles;
               if (items.length === 0) {
-                return <p className="text-center py-6 text-gray-400 text-sm">Aucun bulletin disponible.</p>;
+                return <p className="text-center py-6 text-gray-400 text-sm">0 bulletin disponible</p>;
               }
               return items.map(b => (
                 <label key={b.id_bulletin} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm">
@@ -1302,7 +1302,10 @@ export default function Bordereaux() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Bordereaux</h1>
-          <p className="text-sm text-gray-500 mt-1">{bordereaux.length} bordereaux · {bulletinsDisponibles.length} bulletin(s) disponible(s)</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {bordereaux.length} bordereaux ·{' '}
+            {bordereaux.reduce((sum, b) => sum + ((b.bulletinSoins || b.bulletin_soins || []).length), 0)} bulletin(s) dans les bordereaux
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {/* Filtre année */}
@@ -1435,7 +1438,7 @@ export default function Bordereaux() {
                 );
               })}
               {!loading && bordereaux.length === 0 && (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-500">Aucun bordereau créé pour le moment.</td></tr>
+                <tr><td colSpan={9} className="text-center py-8 text-gray-500">0 bordereau</td></tr>
               )}
             </tbody>
           </table>

@@ -41,7 +41,7 @@ class BulletinSoinController extends Controller
             $query->where('id_adherent', $idAdherent);
         }
 
-        $bulletins = $query->orderBy('date_soin', 'desc')
+        $bulletins = $query->orderBy('id_bulletin', 'desc')
                            ->paginate($request->get('per_page', 20));
 
         return response()->json([
