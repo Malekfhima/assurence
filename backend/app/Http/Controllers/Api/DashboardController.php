@@ -21,6 +21,7 @@ class DashboardController extends Controller
         $bulletinsEnAttente = BulletinSoin::where('etat', 'En attente')->count();
         $bulletinsValides = BulletinSoin::where('etat', 'Validé')->count();
         $bulletinsRejetes = BulletinSoin::where('etat', 'Rejeté')->count();
+        $bulletinsSousControle = BulletinSoin::where('etat', 'Sous contrôle')->count();
 
         $montantTotal = BulletinSoin::where('etat', 'Validé')
                                      ->sum('montant_depense');
@@ -35,6 +36,7 @@ class DashboardController extends Controller
                 'bulletins_en_attente' => $bulletinsEnAttente,
                 'bulletins_valides' => $bulletinsValides,
                 'bulletins_rejetes' => $bulletinsRejetes,
+                'bulletins_sous_controle' => $bulletinsSousControle,
                 'montant_total_rembourse' => number_format($montantTotal, 3, '.', ''),
             ],
         ]);

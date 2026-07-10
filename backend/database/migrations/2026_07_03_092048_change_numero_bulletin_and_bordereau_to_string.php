@@ -8,13 +8,21 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('bulletin_soin', function (Blueprint $table) {
-            $table->string('numero_bulletin', 50)->change();
-        });
+        try {
+            Schema::table('bulletin_soin', function (Blueprint $table) {
+                $table->string('numero_bulletin', 50)->change();
+            });
+        } catch (\Exception $e) {
+            // Déjà modifié, ignorer
+        }
 
-        Schema::table('bordereau', function (Blueprint $table) {
-            $table->string('numero_bordereau', 50)->change();
-        });
+        try {
+            Schema::table('bordereau', function (Blueprint $table) {
+                $table->string('numero_bordereau', 50)->change();
+            });
+        } catch (\Exception $e) {
+            // Déjà modifié, ignorer
+        }
     }
 
     public function down(): void

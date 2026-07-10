@@ -565,6 +565,7 @@ const etatBadge = (etat) => {
     'En attente': 'bg-amber-50 text-amber-700 border-amber-200',
     'Validé': 'bg-emerald-50 text-emerald-700 border-emerald-200',
     'Rejeté': 'bg-red-50 text-red-700 border-red-200',
+    'Sous contrôle': 'bg-purple-50 text-purple-700 border-purple-200',
   };
   return `inline-flex px-2 py-1 rounded-full text-xs font-medium border ${styles[etat] || 'bg-gray-50 text-gray-600 border-gray-200'}`;
 };
@@ -1026,6 +1027,7 @@ export default function Bulletins() {
           <option value="En attente">En attente</option>
           <option value="Validé">Validé</option>
           <option value="Rejeté">Rejeté</option>
+          <option value="Sous contrôle">Sous contrôle</option>
         </select>
       </div>
 

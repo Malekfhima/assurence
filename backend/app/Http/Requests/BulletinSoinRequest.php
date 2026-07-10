@@ -23,7 +23,7 @@ class BulletinSoinRequest extends FormRequest
             'montant_depense' => 'nullable|numeric|min:0',
             'type_soin' => 'nullable|string|max:100',
             'description' => 'nullable|string|max:255',
-            'etat' => 'nullable|string|max:50|in:En attente,Validé,Rejeté',
+            'etat' => 'nullable|string|max:50|in:En attente,Validé,Rejeté,Sous contrôle',
             'details' => 'required|array|min:1',
             'details.*.date' => 'nullable|date',
             'details.*.montant' => 'required|numeric|min:0.01',
@@ -45,7 +45,7 @@ class BulletinSoinRequest extends FormRequest
             'details.*.montant.required' => 'Le montant est obligatoire pour chaque ligne de soin.',
             'details.*.montant.min' => 'Le montant doit être supérieur à 0.',
             'details.*.type_soin.required' => 'Le type de soin est obligatoire pour chaque ligne.',
-            'etat.in' => "L'état doit être : En attente, Validé ou Rejeté.",
+            'etat.in' => "L'état doit être : En attente, Validé, Rejeté ou Sous contrôle.",
         ];
     }
 }

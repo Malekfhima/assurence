@@ -56,7 +56,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Envoyer un bordereau
     Route::post('/bordereaux/{id}/envoyer', [BordereauController::class, 'envoyer']);
 
-    // Réponse au bordereau (upload fichier CSV/Excel + PDF)
-    Route::post('/bordereaux/{id}/reponse', [BordereauController::class, 'reponse']);
+    // Vérification du bordereau par PDF STIP uniquement
+    Route::post('/bordereaux/{id}/verifier-pdf', [BordereauController::class, 'verifierPdf']);
+
+    // Historique des actions du bordereau
+    Route::get('/bordereaux/{id}/logs', [BordereauController::class, 'logs']);
 });
 

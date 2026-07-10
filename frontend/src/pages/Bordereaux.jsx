@@ -14,6 +14,7 @@ const etatBulletinBadge = (etat) => {
   const styles = {
     'Validé': 'bg-emerald-50 text-emerald-700 border-emerald-200',
     'Rejeté': 'bg-red-50 text-red-700 border-red-200',
+    'Sous contrôle': 'bg-purple-50 text-purple-700 border-purple-200',
     'En attente': 'bg-amber-50 text-amber-700 border-amber-200',
   };
   return `inline-flex px-2 py-1 rounded-full text-xs font-medium border ${styles[etat] || 'bg-gray-50 text-gray-600 border-gray-200'}`;
@@ -281,7 +282,8 @@ function BulletinDetailView({ bulletin, onBack, onPreviewPdf, onEditBulletin }) 
           <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${
               bulletin.etat === 'Validé' ? 'bg-emerald-500' :
-              bulletin.etat === 'Rejeté' ? 'bg-red-500' : 'bg-amber-500'
+              bulletin.etat === 'Rejeté' ? 'bg-red-500' :
+              bulletin.etat === 'Sous contrôle' ? 'bg-purple-500' : 'bg-amber-500'
             }`}></div>
             <h4 className="text-base font-semibold text-gray-900">Bulletin N°{bulletin.numero_bulletin}</h4>
             <span className={etatBulletinBadge(bulletin.etat)}>{bulletin.etat || 'En attente'}</span>
@@ -384,56 +386,31 @@ function BulletinDetailView({ bulletin, onBack, onPreviewPdf, onEditBulletin }) 
   );
 }
 
-function BordereauReponseModal({ bordereau, onClose, onSubmitReponse, loading }) {
-  const [fichierDonnees, setFichierDonnees] = useState(null);
-  const [fichierReponse, setFichierReponse] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [errors, setErrors] = useState('');
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setFichierDonnees(file);
-    setErrors('');
-    setPreview(null);
-
-    // Essayer de prévisualiser le CSV
-    if (file.type === 'text/csv' || file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const lines = ev.target.result.split('\n').filter(l => l.trim());
-        if (lines.length > 0) {
-          const header = lines[0].split(',').map(h => h.trim());
-          const dataRows = lines.slice(1, 6).map(row => row.split(',').map(c => c.trim()));
-          setPreview({ header, rows: dataRows, total: lines.length - 1 });
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
+function BordereauVerifierPdfModal({ bordereau, onClose, onSubmitPdf, loading }) {
+  const [pdfFile, setPdfFile] = useState(null);
+  const [error, setError] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!fichierDonnees) {
-      setErrors('Veuillez sélectionner un fichier CSV.');
+    if (!pdfFile) {
+      setError('Veuillez sélectionner un fichier PDF.');
       return;
     }
-    onSubmitReponse(fichierDonnees, fichierReponse);
+    onSubmitPdf(pdfFile);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Réponse du bordereau</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Vérifier par PDF</h3>
               <p className="text-xs text-gray-500 mt-0.5">Bordereau N°{bordereau.numero_bordereau}</p>
             </div>
           </div>
@@ -442,87 +419,63 @@ function BordereauReponseModal({ bordereau, onClose, onSubmitReponse, loading })
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Format indication */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
-            <p className="font-medium mb-1">📄 Format du fichier CSV attendu :</p>
-            <code className="block bg-blue-100/50 px-2 py-1 rounded text-xs">
-              numero_bulletin,etat[,montant]<br />
-              BR-001,Validé,150.000<br />
-              BR-002,Rejeté<br />
-              BR-003,Validé,200.000
-            </code>
-            <p className="mt-1 text-blue-600">État accepté : Validé ou Rejeté</p>
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-xs text-purple-800">
+            <p className="font-medium mb-1">📄 Format attendu :</p>
+            <p className="text-purple-700">PDF de réponse STIP (Bordereau de Remboursement Maladie).</p>
+            <p className="text-purple-600 mt-1">Le système détectera automatiquement les bulletins validés, rejetés et sous contrôle.</p>
           </div>
 
-          {/* Fichier données */}
+          {/* Fichier PDF */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Fichier CSV des résultats <span className="text-red-500">*</span>
+              Fichier PDF de réponse <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
                 type="file"
-                accept=".csv,.txt"
-                onChange={handleFileChange}
-                className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-[#0F2942] file:text-white hover:file:bg-[#1A3A5C] file:cursor-pointer file:transition cursor-pointer"
+                accept=".pdf"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file && file.type !== 'application/pdf') {
+                    setError('Le fichier doit être au format PDF.');
+                    setPdfFile(null);
+                    e.target.value = '';
+                    return;
+                  }
+                  if (file && file.size > 20 * 1024 * 1024) {
+                    setError('Le fichier ne doit pas dépasser 20 Mo.');
+                    setPdfFile(null);
+                    e.target.value = '';
+                    return;
+                  }
+                  setPdfFile(file);
+                  setError('');
+                }}
+                className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-purple-600 file:text-white hover:file:bg-purple-700 file:cursor-pointer file:transition cursor-pointer"
               />
             </div>
+            {pdfFile && (
+              <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {pdfFile.name} ({(pdfFile.size / 1024).toFixed(0)} Ko)
+              </p>
+            )}
           </div>
 
-          {/* Preview */}
-          {preview && (
-            <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
-              <p className="text-xs font-medium text-gray-700 mb-2">Aperçu ({preview.total} ligne(s)) :</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      {preview.header.map((h, i) => (
-                        <th key={i} className="px-2 py-1 text-left font-medium text-gray-600">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.rows.map((row, i) => (
-                      <tr key={i} className="border-t border-gray-200">
-                        {row.map((cell, j) => (
-                          <td key={j} className="px-2 py-1 text-gray-700">{cell}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {preview.total > 5 && (
-                <p className="text-xs text-gray-400 mt-1">... et {preview.total - 5} ligne(s) supplémentaire(s)</p>
-              )}
-            </div>
-          )}
-
-          {/* Fichier réponse PDF (optionnel) */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1.5">
-              Document réponse PDF <span className="text-gray-400">(optionnel)</span>
-            </label>
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={(e) => setFichierReponse(e.target.files[0])}
-              className="block w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-600 file:text-white hover:file:bg-gray-700 file:cursor-pointer file:transition cursor-pointer"
-            />
-          </div>
-
-          {errors && <p className="text-xs text-red-500">{errors}</p>}
+          {error && <p className="text-xs text-red-500">{error}</p>}
 
           <div className="pt-2 flex justify-end gap-3">
             <button type="button" onClick={onClose} disabled={loading} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition disabled:opacity-50">Annuler</button>
-            <button type="submit" disabled={loading || !fichierDonnees} className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50 flex items-center gap-2">
+            <button type="submit" disabled={loading || !pdfFile} className="px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 flex items-center gap-2">
               {loading && (
                 <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               )}
-              Traiter la réponse
+              Vérifier le bordereau
             </button>
           </div>
         </form>
@@ -531,12 +484,78 @@ function BordereauReponseModal({ bordereau, onClose, onSubmitReponse, loading })
   );
 }
 
-function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onReponse, envoyerLoading }) {
+function ReponsePdfPreviewModal({ fileUrl, titre, onClose }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            <h3 className="text-base font-semibold text-gray-900">{titre || 'PDF Réponse'}</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0F2942] hover:bg-[#1A3A5C] rounded-lg transition"
+              title="Télécharger le PDF"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Télécharger
+            </a>
+            <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 bg-gray-100 flex items-center justify-center">
+          {loading && (
+            <div className="flex flex-col items-center gap-3 text-gray-400">
+              <svg className="w-8 h-8 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="text-xs">Chargement du PDF...</span>
+            </div>
+          )}
+          {error && (
+            <div className="flex flex-col items-center gap-2 text-red-500">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <span className="text-sm">{error}</span>
+            </div>
+          )}
+          {!error && (
+            <iframe
+              src={fileUrl}
+              className="w-full h-full min-h-[65vh]"
+              title={titre || 'PDF Réponse'}
+              onLoad={() => setLoading(false)}
+              onError={() => { setError('Impossible de charger le PDF.'); setLoading(false); }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onVerifyPdf, envoyerLoading }) {
   const [bulletins, setBulletins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedBulletin, setSelectedBulletin] = useState(null);
   const [pdfPreview, setPdfPreview] = useState(null);
+  const [reponsePdfPreview, setReponsePdfPreview] = useState(null);
   const [recherche, setRecherche] = useState('');
+  const [filtreEtat, setFiltreEtat] = useState('');
 
   // Edit bulletin state
   const [editBulletin, setEditBulletin] = useState(null);
@@ -657,8 +676,11 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onReponse
     }
   }, [bordereau]);
 
-  // Filtrer les bulletins côté client selon la recherche
+  // Filtrer les bulletins côté client selon la recherche et le statut
   const bulletinsFiltres = bulletins.filter(bs => {
+    // Filtre par statut
+    if (filtreEtat && bs.etat !== filtreEtat) return false;
+    // Filtre par texte
     if (!recherche.trim()) return true;
     const q = recherche.trim().toLowerCase();
     const mat = (bs.adherent?.matricule || '').toLowerCase();
@@ -673,18 +695,23 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onReponse
     const grouped = bulletinsFiltres.reduce((acc, bs) => {
       const etat = bs.etat || 'En attente';
       acc[etat] = (acc[etat] || 0) + 1;
+      if (etat === 'Validé') {
+        acc.montant_rembourse = (acc.montant_rembourse || 0) + Number(bs.montant_depense || 0);
+      }
       return acc;
     }, {});
     return {
       en_attente: grouped['En attente'] || 0,
       valide: grouped['Validé'] || 0,
       rejete: grouped['Rejeté'] || 0,
+      sous_controle: grouped['Sous contrôle'] || 0,
       total: bulletinsFiltres.length,
+      montant_rembourse: grouped.montant_rembourse || 0,
     };
   })();
 
   // Utiliser les stats filtrées si recherche active, sinon celles du bordereau
-  const stats = recherche.trim() ? statsFiltres : (bordereau.stats_bulletins || { en_attente: 0, valide: 0, rejete: 0, total: 0 });
+  const stats = recherche.trim() ? statsFiltres : (bordereau.stats_bulletins || { en_attente: 0, valide: 0, rejete: 0, sous_controle: 0, total: 0, montant_rembourse: 0 });
 
   // Si un bulletin est sélectionné, afficher ses détails (mode édition ou vue)
   if (selectedBulletin) {
@@ -734,6 +761,7 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onReponse
                       <option value="En attente">En attente</option>
                       <option value="Validé">Validé</option>
                       <option value="Rejeté">Rejeté</option>
+                      <option value="Sous contrôle">Sous contrôle</option>
                     </select>
                   </div>
                 </div>
@@ -904,34 +932,32 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onReponse
                 Envoyer
               </button>
             )}
-            {/* Bouton Réponse (quand le bordereau est envoyé) */}
+            {/* Bouton Vérifier PDF (quand le bordereau est envoyé) */}
             {bordereau.statut === 'Envoyé' && (
               <button
-                onClick={(e) => { e.stopPropagation(); onReponse?.(bordereau); }}
-                className="px-3 py-1.5 text-xs text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition flex items-center gap-1"
-                title="Réceptionner la réponse"
+                onClick={(e) => { e.stopPropagation(); onVerifyPdf?.(bordereau); }}
+                className="px-3 py-1.5 text-xs text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition flex items-center gap-1"
+                title="Vérifier avec le PDF de réponse STIP"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
-                Réponse
+                Vérifier PDF
               </button>
             )}
-            {/* Voir le fichier réponse (quand traité) */}
+            {/* Voir PDF réponse (quand traité) */}
             {bordereau.statut === 'Traité' && bordereau.fichier_reponse && (
-              <a
-                href={`/storage/${bordereau.fichier_reponse}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="px-3 py-1.5 text-xs text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition flex items-center gap-1"
-                title="Voir le fichier réponse"
+              <button
+                onClick={(e) => { e.stopPropagation(); setReponsePdfPreview(`/storage/${bordereau.fichier_reponse}`); }}
+                className="px-3 py-1.5 text-xs text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition flex items-center gap-1"
+                title="Voir le PDF de réponse"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                Fichier réponse
-              </a>
+                Voir PDF réponse
+              </button>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(bordereau); }}
@@ -942,30 +968,43 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onReponse
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               Modifier
-            </button>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
+            </button>          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
           </div>
         </div>
-
-        {/* Stats récapitulatives */}
-        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-gray-500 text-xs uppercase tracking-wide font-medium">État des bulletins :</span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span className="text-gray-700">Validés</span>
-              <span className="font-semibold text-emerald-700">{stats.valide}</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-500"></span>
-              <span className="text-gray-700">Rejetés</span>
-              <span className="font-semibold text-red-700">{stats.rejete}</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-              <span className="text-gray-700">En attente</span>
-              <span className="font-semibold text-amber-700">{stats.en_attente}</span>
-            </span>
+        {/* Vue Bulletins */}
+        <>
+          {/* Stats récapitulatives */}
+            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-gray-500 text-xs uppercase tracking-wide font-medium">État des bulletins :</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span className="text-gray-700">Validés</span>
+                  <span className="font-semibold text-emerald-700">{stats.valide}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                  <span className="text-gray-700">Rejetés</span>
+                  <span className="font-semibold text-red-700">{stats.rejete}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                  <span className="text-gray-700">Sous contrôle</span>
+                  <span className="font-semibold text-purple-700">{stats.sous_controle || 0}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                  <span className="text-gray-700">En attente</span>
+                  <span className="font-semibold text-amber-700">{stats.en_attente}</span>
+                </span>
+                <span className="text-gray-300">|</span>
+                <span className="flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-gray-700">Montant remboursé</span>
+                  <span className="font-semibold text-emerald-700">{Number(bordereau.montant_total || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
+                </span>
             {recherche.trim() && (
               <span className="ml-auto text-xs text-gray-400 italic">
                 {bulletinsFiltres.length} résultat(s) sur {bulletins.length}
@@ -974,29 +1013,59 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onReponse
           </div>
         </div>
 
-        {/* Barre de recherche */}
+        {/* Barre de recherche et filtre par statut */}
         <div className="px-5 py-2.5 border-b border-gray-100 flex-shrink-0">
-          <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={recherche}
-              onChange={(e) => setRecherche(e.target.value)}
-              placeholder="Rechercher par matricule adhérent, numéro bulletin, nom ou prénom…"
-              className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-            {recherche && (
-              <button
-                onClick={() => setRecherche('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                placeholder="Rechercher par matricule, numéro, nom ou prénom…"
+                className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+              {recherche && (
+                <button
+                  onClick={() => setRecherche('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {/* Filtre par statut */}
+            <div className="relative">
+              <select
+                value={filtreEtat}
+                onChange={(e) => setFiltreEtat(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white pr-8 appearance-none cursor-pointer"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
+                <option value="">Tous les statuts</option>
+                <option value="Validé">Validé</option>
+                <option value="Rejeté">Rejeté</option>
+                <option value="Sous contrôle">Sous contrôle</option>
+                <option value="En attente">En attente</option>
+              </select>
+              <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              {filtreEtat && (
+                <button
+                  onClick={() => setFiltreEtat('')}
+                  className="absolute right-7 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+                  title="Réinitialiser le filtre"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1035,7 +1104,8 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onReponse
                   <div className="flex items-center gap-4">
                     <div className={`w-2 h-2 rounded-full ${
                       bs.etat === 'Validé' ? 'bg-emerald-500' :
-                      bs.etat === 'Rejeté' ? 'bg-red-500' : 'bg-amber-500'
+                      bs.etat === 'Rejeté' ? 'bg-red-500' :
+                      bs.etat === 'Sous contrôle' ? 'bg-purple-500' : 'bg-amber-500'
                     }`}></div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -1078,22 +1148,30 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onReponse
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-200 flex justify-end flex-shrink-0 bg-gray-50/50">
-          {bordereau.commentaire && (
-            <div className="flex-1 mr-4">
-              <p className="text-xs text-gray-500 mb-1">Commentaire :</p>
-              <p className="text-sm text-gray-700">{bordereau.commentaire}</p>
+        {/* Footer */}            <div className="p-4 border-t border-gray-200 flex justify-end flex-shrink-0 bg-gray-50/50">
+              {bordereau.commentaire && (
+                <div className="flex-1 mr-4">
+                  <p className="text-xs text-gray-500 mb-1">Commentaire :</p>
+                  <p className="text-sm text-gray-700">{bordereau.commentaire}</p>
+                </div>
+              )}
+              <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg transition">Fermer</button>
             </div>
-          )}
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded-lg transition">Fermer</button>
-        </div>
+          </>
       </div>
 
       {pdfPreview && (
         <PdfPreviewModal
           bulletin={pdfPreview}
           onClose={() => setPdfPreview(null)}
+        />
+      )}
+
+      {reponsePdfPreview && (
+        <ReponsePdfPreviewModal
+          fileUrl={reponsePdfPreview}
+          titre={`PDF Réponse - Bordereau N°${bordereau.numero_bordereau}`}
+          onClose={() => setReponsePdfPreview(null)}
         />
       )}
     </div>
@@ -1118,9 +1196,9 @@ export default function Bordereaux() {
   // Envoyer
   const [envoyerLoading, setEnvoyerLoading] = useState(false);
 
-  // Réponse modal state
-  const [reponseTarget, setReponseTarget] = useState(null);
-  const [reponseLoading, setReponseLoading] = useState(false);
+  // Vérification PDF state
+  const [verifyPdfTarget, setVerifyPdfTarget] = useState(null);
+  const [verifyPdfLoading, setVerifyPdfLoading] = useState(false);
 
   // Filter state
   const [filterAnnee, setFilterAnnee] = useState('');
@@ -1131,6 +1209,9 @@ export default function Bordereaux() {
   const [editForm, setEditForm] = useState({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
   const [editBulletinIds, setEditBulletinIds] = useState([]);
   const [editLoading, setEditLoading] = useState(false);
+
+  // PDF réponse preview (depuis le tableau)
+  const [tablePdfPreview, setTablePdfPreview] = useState(null);
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -1148,11 +1229,21 @@ export default function Bordereaux() {
       if (filterAnnee) params.annee = filterAnnee;
       if (filterMois) params.mois = filterMois;
 
+      // Fonction pour masquer les bordereaux traités il y a plus d'un mois (ils passent dans l'Historique)
+      const estRecent = (b) => {
+        if (b.statut !== 'Traité') return true;
+        if (!b.date_reponse) return true;
+        const dateReponse = new Date(b.date_reponse);
+        const ilYaUnMois = new Date();
+        ilYaUnMois.setMonth(ilYaUnMois.getMonth() - 1);
+        return dateReponse >= ilYaUnMois;
+      };
+
       const [bordereauxRes, bulletinsRes] = await Promise.all([
         api.get('/bordereaux', { params }),
         api.get('/bulletins', { params: { per_page: 500 } }),
       ]);
-      if (bordereauxRes.data.success) setBordereaux(bordereauxRes.data.data);
+      if (bordereauxRes.data.success) setBordereaux(bordereauxRes.data.data.filter(estRecent));
       if (bulletinsRes.data.success) {
         // Only keep bulletins not yet linked to a bordereau
         setBulletinsDisponibles(bulletinsRes.data.data.filter(b => !b.id_bordereau));
@@ -1243,37 +1334,34 @@ export default function Bordereaux() {
     }
   };
 
-  const openReponseModal = (bordereau) => {
-    setReponseTarget(bordereau);
+  const openVerifyPdfModal = (bordereau) => {
+    setVerifyPdfTarget(bordereau);
     setDetailTarget(null);
   };
 
-  const handleReponse = async (fichierDonnees, fichierReponse) => {
-    if (!reponseTarget) return;
-    setReponseLoading(true);
+  const handleVerifierPdf = async (pdfFile) => {
+    if (!verifyPdfTarget || !pdfFile) return;
+    setVerifyPdfLoading(true);
     try {
       const formData = new FormData();
-      formData.append('fichier_donnees', fichierDonnees);
-      if (fichierReponse) {
-        formData.append('fichier_reponse', fichierReponse);
-      }
+      formData.append('pdf', pdfFile);
 
-      const res = await api.post(`/bordereaux/${reponseTarget.id_bordereau}/reponse`, formData);
+      const res = await api.post(`/bordereaux/${verifyPdfTarget.id_bordereau}/verifier-pdf`, formData);
 
-      const msg = res.data.message || 'Réponse traitée avec succès.';
+      const msg = res.data.message || 'Bordereau vérifié avec succès.';
       const warnings = res.data.warnings;
-      if (warnings && warnings.length > 0) {
-        showNotif(msg + ' (' + warnings.length + ' avertissement(s))', 'success');
+      if (warnings && warnings.not_found && warnings.not_found.length > 0) {
+        showNotif(msg + ' (' + warnings.not_found.length + ' bulletin(s) non trouvé(s))', 'success');
       } else {
         showNotif(msg, 'success');
       }
-      setReponseTarget(null);
+      setVerifyPdfTarget(null);
       fetchData();
     } catch (err) {
-      const errMsg = err.response?.data?.message || err.response?.data?.errors?.[0] || 'Erreur lors du traitement de la réponse.';
+      const errMsg = err.response?.data?.message || 'Erreur lors de la vérification par PDF.';
       showNotif(errMsg, 'error');
     } finally {
-      setReponseLoading(false);
+      setVerifyPdfLoading(false);
     }
   };
 
@@ -1361,6 +1449,7 @@ export default function Bordereaux() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Bulletins liés</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Validés</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Rejetés</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Sous contrôle</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">En attente</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Montant total</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Date envoi</th>
@@ -1370,7 +1459,7 @@ export default function Bordereaux() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {bordereaux.map((b) => {
-                const stats = b.stats_bulletins || { en_attente: 0, valide: 0, rejete: 0, total: 0 };
+                const stats = b.stats_bulletins || { en_attente: 0, valide: 0, rejete: 0, sous_controle: 0, total: 0 };
                 return (
                   <tr
                     key={b.id_bordereau}
@@ -1404,13 +1493,23 @@ export default function Bordereaux() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full text-xs font-medium">
+                        {stats.sous_controle || 0}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full text-xs font-medium">
                         {stats.en_attente}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-900 font-semibold">{Number(b.montant_total || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
                     <td className="px-4 py-3 text-gray-500">{b.date_envoi || '-'}</td>
-                    <td className="px-4 py-3"><span className={statutBordereauBadge(b.statut)}>{b.statut || 'En attente'}</span></td>
+                    <td className="px-4 py-3">
+                        <span className={statutBordereauBadge(b.statut)}>{b.statut || 'En attente'}</span>
+                        {b.statut === 'Traité' && b.fichier_reponse && (
+                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 bg-red-50 text-red-600 border border-red-200 rounded text-[10px] font-bold uppercase tracking-wider">PDF</span>
+                        )}
+                      </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
@@ -1423,6 +1522,17 @@ export default function Bordereaux() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
+                        {b.statut === 'Traité' && b.fichier_reponse && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setTablePdfPreview(`/storage/${b.fichier_reponse}`); }}
+                            className="p-1.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                            title="Voir le PDF réponse"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        )}
                         <button
                           onClick={(e) => { e.stopPropagation(); setDeleteTarget(b); }}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
@@ -1438,7 +1548,7 @@ export default function Bordereaux() {
                 );
               })}
               {!loading && bordereaux.length === 0 && (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-500">0 bordereau</td></tr>
+                <tr><td colSpan={10} className="text-center py-8 text-gray-500">0 bordereau</td></tr>
               )}
             </tbody>
           </table>
@@ -1500,18 +1610,27 @@ export default function Bordereaux() {
           onClose={() => setDetailTarget(null)}
           onEdit={openEditModal}
           onEnvoyer={handleEnvoyer}
-          onReponse={openReponseModal}
+          onVerifyPdf={openVerifyPdfModal}
           envoyerLoading={envoyerLoading}
         />
       )}
 
-      {/* Réponse modal */}
-      {reponseTarget && (
-        <BordereauReponseModal
-          bordereau={reponseTarget}
-          onClose={() => setReponseTarget(null)}
-          onSubmitReponse={handleReponse}
-          loading={reponseLoading}
+      {/* Vérification PDF modal */}
+      {verifyPdfTarget && (
+        <BordereauVerifierPdfModal
+          bordereau={verifyPdfTarget}
+          onClose={() => setVerifyPdfTarget(null)}
+          onSubmitPdf={handleVerifierPdf}
+          loading={verifyPdfLoading}
+        />
+      )}
+
+      {/* PDF réponse preview depuis le tableau */}
+      {tablePdfPreview && (
+        <ReponsePdfPreviewModal
+          fileUrl={tablePdfPreview}
+          titre="PDF Réponse"
+          onClose={() => setTablePdfPreview(null)}
         />
       )}
 

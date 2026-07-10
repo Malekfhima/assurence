@@ -25,20 +25,27 @@ class Bordereau extends Model
     public function getStatsBulletinsAttribute(): array
     {
         if (!$this->relationLoaded('bulletinSoins')) {
-            return ['en_attente' => 0, 'valide' => 0, 'rejete' => 0, 'total' => 0];
+            return ['en_attente' => 0, 'valide' => 0, 'rejete' => 0, 'sous_controle' => 0, 'total' => 0];
         }
 
         $grouped = $this->bulletinSoins->groupBy('etat');
         return [
-            'en_attente' => ($grouped->get('En attente', collect()))->count(),
-            'valide'     => ($grouped->get('Validé', collect()))->count(),
-            'rejete'     => ($grouped->get('Rejeté', collect()))->count(),
-            'total'      => $this->bulletinSoins->count(),
+            'en_attente'    => ($grouped->get('En attente', collect()))->count(),
+            'valide'        => ($grouped->get('Validé', collect()))->count(),
+            'rejete'        => ($grouped->get('Rejeté', collect()))->count(),
+            'sous_controle' => ($grouped->get('Sous contrôle', collect()))->count(),
+            'total'         => $this->bulletinSoins->count(),
         ];
     }
 
     public function bulletinSoins(): HasMany
     {
         return $this->hasMany(BulletinSoin::class, 'id_bordereau', 'id_bordereau');
+    }
+
+    public function logs(): HasMany
+    {
+        return $this->hasMany(BordereauLog::class, 'id_bordereau', 'id_bordereau')
+                    ->orderBy('created_at', 'desc');
     }
 }
