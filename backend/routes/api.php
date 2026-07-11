@@ -61,5 +61,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Historique des actions du bordereau
     Route::get('/bordereaux/{id}/logs', [BordereauController::class, 'logs']);
+
+    // Téléchargement du PDF réponse STIP
+    Route::get('/bordereaux/{id}/reponse-pdf', [BordereauController::class, 'reponsePdf']);
+
+    // Re-parser le PDF réponse pour corriger les montant_rembourse des bulletins (backfill)
+    Route::post('/bordereaux/{id}/reparer-montants', [BordereauController::class, 'reparerMontantRembourse']);
 });
 

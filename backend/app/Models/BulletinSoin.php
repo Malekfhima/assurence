@@ -14,18 +14,19 @@ class BulletinSoin extends Model
 
     protected $fillable = [
         'id_adherent', 'id_sous_adherent', 'id_bordereau', 'numero_bulletin',
-        'date_soin', 'montant_depense', 'type_soin', 'description', 'etat', 'pdf_path',
+        'date_soin', 'montant_depense', 'montant_rembourse', 'type_soin', 'description', 'etat', 'pdf_path',
     ];
 
     /**
-     * Accessor: calcule le montant depuis les détails si chargés,
-     * sinon retourne la valeur en base.
+     * Accessor: retourne la valeur stockée en base (source de vérité).
+     * La colonne montant_depense est définie explicitement lors de la
+     * création du bulletin (via le formulaire) et lors de la vérification
+     * PDF (mise à jour depuis le montant_rembourse du PDF STIP).
+     * Ne pas recalculer depuis les détails car cela écraserait les
+     * mises à jour explicites (ex: vérification PDF).
      */
     public function getMontantDepenseAttribute($value): float
     {
-        if ($this->relationLoaded('details') && $this->details->isNotEmpty()) {
-            return (float) $this->details->sum('montant');
-        }
         return (float) ($value ?? 0);
     }
 

@@ -266,7 +266,7 @@ export default function Adherents() {
                   <td className="px-4 py-3 text-gray-500">{a.cin || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{a.telephone || '-'}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${a.statut === 'Actif' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{a.statut}</span>
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${a.statut?.toLowerCase() === 'actif' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-gray-100 text-gray-600 border border-gray-200'}`}>{a.statut?.toLowerCase() === 'actif' ? 'Actif' : a.statut}</span>
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-sm font-semibold">{a.sous_adherents_count ?? 0}</span>

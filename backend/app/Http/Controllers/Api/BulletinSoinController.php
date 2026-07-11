@@ -41,8 +41,13 @@ class BulletinSoinController extends Controller
             $query->where('id_adherent', $idAdherent);
         }
 
+        // Filtrer uniquement les bulletins disponibles (non liés à un bordereau)
+        if ($request->boolean('available')) {
+            $query->whereNull('id_bordereau');
+        }
+
         $bulletins = $query->orderBy('id_bulletin', 'desc')
-                           ->paginate($request->get('per_page', 20));
+                           ->paginate(min($request->get('per_page', 20), 9999));
 
         return response()->json([
             'success' => true,

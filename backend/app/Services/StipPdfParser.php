@@ -127,6 +127,7 @@ class StipPdfParser
         $lines = explode("\n", $text);
         $bulletins = [];
         $totalBordereau = null;
+        $textPreview = mb_substr($text, 0, 600);
 
         foreach ($lines as $line) {
             $trimmed = trim($line);
@@ -137,7 +138,6 @@ class StipPdfParser
             }
 
             // --- DÉTECTION DU TOTAL BORDEREAU ---
-            // Ligne comme : "Total bordereau : 12623.945" ou "Total bordereau 12623.945"
             if (preg_match('/^Total\s+bordereau\s*:?\s*([\d\s,.]+)$/i', $trimmed, $totalMatch)) {
                 $totalValue = str_replace([' ', ','], ['', '.'], trim($totalMatch[1]));
                 if (is_numeric($totalValue)) {
@@ -165,12 +165,12 @@ class StipPdfParser
                 continue;
             }
 
-            // Chercher un numéro de bulletin : lettre + 6 chiffres
-            if (!preg_match('/^[\s\d\/]{0,20}\b([A-Z]\d{6})\b/', $trimmed, $matches)) {
+            // --- DÉTECTION DU NUMÉRO DE BULLETIN ---
+            $numero = $this->findNumeroBulletin($trimmed);
+
+            if ($numero === null) {
                 continue;
             }
-
-            $numero = $matches[1];
 
             // Extraire tous les mots de la ligne
             $parts = preg_split('/\s+/', $trimmed);
@@ -180,10 +180,9 @@ class StipPdfParser
                 continue;
             }
 
-            // La colonne "Remboursement" est le dernier mot de la ligne
+            // Déterminer la valeur de la colonne "Remboursement" (statut ou montant)
+            // C'est généralement le dernier mot de la ligne (pour pdftotext -layout)
             $lastPart = end($parts);
-
-            // Vérifier aussi l'avant-dernier mot si le dernier est un point
             $value = $this->cleanValue($lastPart);
             if ($value === '.' || $value === '') {
                 $value = $this->cleanValue(prev($parts));
@@ -194,7 +193,10 @@ class StipPdfParser
             $montant = null;
 
             if ($statut === 'Validé') {
-                $montant = (float) str_replace([' ', ','], ['', '.'], $value);
+                $numericValue = str_replace([' ', ','], ['', '.'], $value);
+                if (is_numeric($numericValue)) {
+                    $montant = (float) $numericValue;
+                }
             }
 
             $bulletins[] = [
@@ -205,16 +207,58 @@ class StipPdfParser
         }
 
         if (empty($bulletins)) {
-            throw new \RuntimeException(
-                'Le PDF ne contient pas les données de bulletins attendues au format STIP. ' .
-                'Vérifiez que le fichier est bien un Bordereau de Remboursement Maladie valide.'
-            );
+            $message = 'Le PDF ne contient pas les données de bulletins attendues au format STIP. ';
+            $message .= "Vérifiez que le fichier est bien un Bordereau de Remboursement Maladie valide.\n\n";
+            $message .= "--- Début du texte extrait (600 premiers caractères) ---\n";
+            $message .= $textPreview . "\n";
+            $message .= '--- Fin du texte extrait ---';
+
+            throw new \RuntimeException($message);
         }
 
         return [
             'bulletins'       => $bulletins,
             'total_bordereau' => $totalBordereau,
         ];
+    }
+
+    /**
+     * Cherche un numéro de bulletin STIP dans une ligne de texte.
+     *
+     * Format STIP standard : lettre majuscule + 6 chiffres (ex: I145278, J862318).
+     * Supporte aussi les variantes : N°I145278, N.I145278, I 145278, etc.
+     *
+     * IMPORTANT : Ne PAS utiliser \b (word boundary) AVANT le numéro de bulletin,
+     * car certains extracteurs PDF collent la date au numéro (ex: 28/03/2026I145278).
+     * Dans ce cas, il n'y a pas de word boundary entre 6 (chiffre) et I (lettre).
+     *
+     * @param  string  $line  Ligne de texte nettoyée
+     * @return string|null    Le numéro de bulletin trouvé, ou null
+     */
+    private function findNumeroBulletin(string $line): ?string
+    {
+        // Pattern 1 : format standard avec préfixe optionnel "N°" ou "N."
+        //   Ex: I145278, N°I145278, N.I145278, 28/03/2026I145278
+        //   Utilise \b après le numéro pour gérer la ponctuation (.,;)
+        //   PAS de \b avant car la date peut être collée (2026I145278)
+        if (preg_match('/(?:N[°.\s]*)?([A-Z]\d{6})\b/', $line, $matches)) {
+            return $matches[1];
+        }
+
+        // Pattern 2 : lettre + espace + 6 chiffres (certains extracteurs ajoutent un espace)
+        //   Ex: I 145278
+        if (preg_match('/(?:N[°.\s]*)?([A-Z])\s+(\d{6})\b/', $line, $matches)) {
+            return $matches[1] . $matches[2];
+        }
+
+        // Pattern 3 : retirer tous les espaces et réessayer (PHP parser peut espacer les caractères)
+        //   Ex: texte extrait comme "I 1 4 5 2 7 8" devient "I145278"
+        $noSpaces = preg_replace('/\s+/', '', $line);
+        if (preg_match('/([A-Z]\d{6,8})(?:\D|$)/', $noSpaces, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
     }
 
     /**
@@ -233,6 +277,8 @@ class StipPdfParser
         }
 
         // En-têtes de section (sans "Total" car on veut détecter "Total bordereau")
+        // Note : "Arrêté" n'est pas dans la liste car on capture le total via
+        // "Arrêté le présent bordereau à la somme de : XXXX.XXX" dans parseBulletinsFromText
         $headers = [
             'GROUPE MALADIE',
             'BORDEREAU DE REMBOURSEMENT MALADIE',
@@ -240,7 +286,6 @@ class StipPdfParser
             'Contrat',
             'STIP',
             'S T I P',
-            'Arrêté',
         ];
 
         foreach ($headers as $header) {

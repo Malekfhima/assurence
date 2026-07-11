@@ -592,6 +592,7 @@ export default function Bulletins() {
 
   // Bordereau state
   const [selectedBulletinIds, setSelectedBulletinIds] = useState([]);
+  const [selectedBulletinsData, setSelectedBulletinsData] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showBordereauModal, setShowBordereauModal] = useState(false);
   const [bordereauForm, setBordereauForm] = useState({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
@@ -605,7 +606,7 @@ export default function Bulletins() {
   const fetchBulletins = async (page = 1, searchOverride, etatFilterOverride) => {
     setLoading(true);
     try {
-      const params = { page, per_page: 15 };
+      const params = { page, per_page: 15, available: 1 };
       const searchVal = searchOverride !== undefined ? searchOverride : search;
       const etatVal = etatFilterOverride !== undefined ? etatFilterOverride : etatFilter;
       if (searchVal) params.search = searchVal;
@@ -668,6 +669,7 @@ export default function Bulletins() {
   // Reset selection when filters change
   useEffect(() => {
     setSelectedBulletinIds([]);
+    setSelectedBulletinsData([]);
     setSelectAll(false);
   }, [search, etatFilter]);
 
@@ -913,35 +915,42 @@ export default function Bulletins() {
   const handleToggleSelect = (id) => {
     setSelectedBulletinIds(prev => {
       if (prev.includes(id)) {
-        // If unchecking while selectAll was active, reset selectAll
         return prev.filter(bid => bid !== id);
       }
       return [...prev, id];
     });
-    // Reset selectAll if user manually unchecks an item
-    if (selectedBulletinIds.includes(id) && selectAll) {
-      setSelectAll(false);
+    // Ajouter/retirer les données complètes du bulletin
+    const bulletin = bulletins.find(b => b.id_bulletin === id);
+    if (bulletin) {
+      setSelectedBulletinsData(prev => {
+        if (prev.find(b => b.id_bulletin === id)) {
+          return prev.filter(b => b.id_bulletin !== id);
+        }
+        return [...prev, bulletin];
+      });
     }
+    // Reset selectAll if user manually changes selection
+    setSelectAll(false);
   };
 
   const handleSelectAll = async () => {
     if (selectAll) {
       setSelectedBulletinIds([]);
+      setSelectedBulletinsData([]);
       setSelectAll(false);
       return;
     }
     try {
       // Fetch ALL bulletins across all pages to select them all
-      const params = { per_page: 10000 };
+      const params = { per_page: 9999 };
       if (search) params.search = search;
       if (etatFilter) params.etat = etatFilter;
       const res = await api.get('/bulletins', { params });
       if (res.data.success) {
         const allBulletins = res.data.data || [];
-        const allIds = allBulletins
-          .filter(b => !b.id_bordereau)
-          .map(b => b.id_bulletin);
-        setSelectedBulletinIds(allIds);
+        const bulletinsDisponibles = allBulletins.filter(b => !b.id_bordereau);
+        setSelectedBulletinsData(bulletinsDisponibles);
+        setSelectedBulletinIds(bulletinsDisponibles.map(b => b.id_bulletin));
         setSelectAll(true);
       }
     } catch (err) {
@@ -949,8 +958,25 @@ export default function Bulletins() {
     }
   };
 
-  const openBordereauModal = () => {
+  const openBordereauModal = async () => {
     setBordereauForm({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
+
+    // Garantir que les données complètes de TOUS les bulletins sélectionnés
+    // (pas seulement ceux de la page courante) sont chargées pour le modal
+    if (selectedBulletinIds.length > 0) {
+      try {
+        const res = await api.get('/bulletins', { params: { per_page: 9999 } });
+        if (res.data.success) {
+          const allBulletins = res.data.data || [];
+          const selected = allBulletins.filter(b => selectedBulletinIds.includes(b.id_bulletin));
+          setSelectedBulletinsData(selected);
+        }
+      } catch (err) {
+        // Échec silencieux — on garde les données existantes
+      }
+    }
+
+    // N'ouvrir le modal qu'après avoir chargé toutes les données
     setShowBordereauModal(true);
   };
 
@@ -967,6 +993,7 @@ export default function Bulletins() {
       showNotif(`Bordereau créé avec succès (${selectedBulletinIds.length} bulletin(s) associé(s)).`);
       setShowBordereauModal(false);
       setSelectedBulletinIds([]);
+      setSelectedBulletinsData([]);
       setSelectAll(false);
       setBordereauForm({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
       // Revenir à la page 1 pour afficher les bulletins restants
@@ -991,7 +1018,7 @@ export default function Bulletins() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Bulletins de soin</h1>
-          <p className="text-sm text-gray-500 mt-1">{bulletinsDisponibles.length} bulletin(s) au total</p>
+          <p className="text-sm text-gray-500 mt-1">{meta.total} bulletin(s) au total · {bulletinsDisponibles.length} disponible(s) sur cette page</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -1177,7 +1204,7 @@ export default function Bulletins() {
       {/* Bordereau creation modal */}
       {showBordereauModal && (
         <BordereauModal
-          selectedBulletins={bulletinsDisponibles.filter(b => selectedBulletinIds.includes(b.id_bulletin))}
+          selectedBulletins={selectedBulletinsData}
           form={bordereauForm}
           setForm={setBordereauForm}
           onSubmit={handleCreateBordereau}

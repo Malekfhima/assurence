@@ -20,6 +20,17 @@ const etatBulletinBadge = (etat) => {
   return `inline-flex px-2 py-1 rounded-full text-xs font-medium border ${styles[etat] || 'bg-gray-50 text-gray-600 border-gray-200'}`;
 };
 
+const getMontantAffiche = (bulletin) => {
+  const etat = bulletin.etat || 'En attente';
+  if (etat === 'Rejeté' || etat === 'Sous contrôle') return 0;
+  // Validé → montant remboursé extrait du PDF réponse STIP (si disponible)
+  if (etat === 'Validé' && bulletin.montant_rembourse !== null && bulletin.montant_rembourse !== undefined) {
+    return Number(bulletin.montant_rembourse);
+  }
+  // En attente → montant réel (montant_depense)
+  return Number(bulletin.montant_depense || 0);
+};
+
 const TYPE_SOIN_OPTIONS = [
   'C1', 'C2', 'C3', 'V1', 'V2', 'V3', 'PH', 'PRO', 'B', 'KC', 'MS',
   'R', 'KE', 'AM', 'OPM', 'OPV', 'D1', 'D2', 'HH', 'HC', 'S.DENT',
@@ -314,7 +325,7 @@ function BulletinDetailView({ bulletin, onBack, onPreviewPdf, onEditBulletin }) 
                 Modifier
               </button>
             )}
-            <p className="text-lg font-bold text-gray-900">{Number(bulletin.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
+            <p className={`text-lg font-bold ${getMontantAffiche(bulletin) === 0 && bulletin.etat !== 'En attente' ? 'text-gray-400' : 'text-gray-900'}`}>{getMontantAffiche(bulletin).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
           </div>
         </div>
 
@@ -484,9 +495,37 @@ function BordereauVerifierPdfModal({ bordereau, onClose, onSubmitPdf, loading })
   );
 }
 
-function ReponsePdfPreviewModal({ fileUrl, titre, onClose }) {
+function ReponsePdfPreviewModal({ idBordereau, titre, onClose }) {
+  const [pdfUrl, setPdfUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!idBordereau) return;
+    let blobUrl = null;
+    setLoading(true);
+    setError('');
+
+    const fetchPdf = async () => {
+      try {
+        const response = await api.get(`/bordereaux/${idBordereau}/reponse-pdf`, {
+          responseType: 'blob',
+        });
+        blobUrl = URL.createObjectURL(response.data);
+        setPdfUrl(blobUrl);
+      } catch (err) {
+        setError('Impossible de charger le PDF réponse.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPdf();
+
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [idBordereau]);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -499,10 +538,25 @@ function ReponsePdfPreviewModal({ fileUrl, titre, onClose }) {
             <h3 className="text-base font-semibold text-gray-900">{titre || 'PDF Réponse'}</h3>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href={fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={async () => {
+                try {
+                  const response = await api.get(`/bordereaux/${idBordereau}/reponse-pdf`, {
+                    responseType: 'blob',
+                  });
+                  const blob = response.data;
+                  const blobUrl = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = blobUrl;
+                  link.download = `reponse_bordereau_${idBordereau}.pdf`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                } catch (err) {
+                  console.error('Erreur téléchargement PDF:', err);
+                }
+              }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0F2942] hover:bg-[#1A3A5C] rounded-lg transition"
               title="Télécharger le PDF"
             >
@@ -510,7 +564,7 @@ function ReponsePdfPreviewModal({ fileUrl, titre, onClose }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               Télécharger
-            </a>
+            </button>
             <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -533,9 +587,9 @@ function ReponsePdfPreviewModal({ fileUrl, titre, onClose }) {
               <span className="text-sm">{error}</span>
             </div>
           )}
-          {!error && (
+          {pdfUrl && (
             <iframe
-              src={fileUrl}
+              src={pdfUrl}
               className="w-full h-full min-h-[65vh]"
               title={titre || 'PDF Réponse'}
               onLoad={() => setLoading(false)}
@@ -948,7 +1002,7 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onVerifyP
             {/* Voir PDF réponse (quand traité) */}
             {bordereau.statut === 'Traité' && bordereau.fichier_reponse && (
               <button
-                onClick={(e) => { e.stopPropagation(); setReponsePdfPreview(`/storage/${bordereau.fichier_reponse}`); }}
+                onClick={(e) => { e.stopPropagation(); setReponsePdfPreview(bordereau.id_bordereau); }}
                 className="px-3 py-1.5 text-xs text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition flex items-center gap-1"
                 title="Voir le PDF de réponse"
               >
@@ -1003,7 +1057,7 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onVerifyP
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span className="text-gray-700">Montant remboursé</span>
-                  <span className="font-semibold text-emerald-700">{Number(bordereau.montant_total || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
+                  <span className="font-semibold text-emerald-700">{Number(stats.montant_rembourse || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
                 </span>
             {recherche.trim() && (
               <span className="ml-auto text-xs text-gray-400 italic">
@@ -1133,7 +1187,9 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onVerifyP
                       </button>
                     )}
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-gray-900">{Number(bs.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
+                      <p className={`text-sm font-semibold ${getMontantAffiche(bs) === 0 && bs.etat !== 'En attente' ? 'text-gray-400' : 'text-gray-900'}`}>
+                        {getMontantAffiche(bs).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                      </p>
                       {bs.details && bs.details.length > 0 && (
                         <p className="text-xs text-gray-400">{bs.details.length} détail(s)</p>
                       )}
@@ -1169,7 +1225,7 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onVerifyP
 
       {reponsePdfPreview && (
         <ReponsePdfPreviewModal
-          fileUrl={reponsePdfPreview}
+          idBordereau={reponsePdfPreview}
           titre={`PDF Réponse - Bordereau N°${bordereau.numero_bordereau}`}
           onClose={() => setReponsePdfPreview(null)}
         />
@@ -1201,8 +1257,13 @@ export default function Bordereaux() {
   const [verifyPdfLoading, setVerifyPdfLoading] = useState(false);
 
   // Filter state
-  const [filterAnnee, setFilterAnnee] = useState('');
   const [filterMois, setFilterMois] = useState('');
+
+  // Selection state for batch edit
+  const [selectedBordereauIds, setSelectedBordereauIds] = useState([]);
+  const [batchEditMode, setBatchEditMode] = useState(false);
+  const [batchEditForm, setBatchEditForm] = useState({ statut: '' });
+  const [batchEditLoading, setBatchEditLoading] = useState(false);
 
   // Edit modal state
   const [editTarget, setEditTarget] = useState(null);
@@ -1226,22 +1287,24 @@ export default function Bordereaux() {
     setLoading(true);
     try {
       const params = { per_page: 100 };
-      if (filterAnnee) params.annee = filterAnnee;
       if (filterMois) params.mois = filterMois;
 
-      // Fonction pour masquer les bordereaux traités il y a plus d'un mois (ils passent dans l'Historique)
+      // Fonction pour déterminer si un bordereau doit rester dans la partie Bordereaux
+      // ou passer dans l'Historique.
+      // Règle unique : si la date d'envoi date de plus d'un an → Historique
       const estRecent = (b) => {
-        if (b.statut !== 'Traité') return true;
-        if (!b.date_reponse) return true;
-        const dateReponse = new Date(b.date_reponse);
-        const ilYaUnMois = new Date();
-        ilYaUnMois.setMonth(ilYaUnMois.getMonth() - 1);
-        return dateReponse >= ilYaUnMois;
+        if (b.date_envoi) {
+          const dateEnvoi = new Date(b.date_envoi);
+          const ilYaUnAn = new Date();
+          ilYaUnAn.setFullYear(ilYaUnAn.getFullYear() - 1);
+          if (dateEnvoi < ilYaUnAn) return false;
+        }
+        return true;
       };
 
       const [bordereauxRes, bulletinsRes] = await Promise.all([
         api.get('/bordereaux', { params }),
-        api.get('/bulletins', { params: { per_page: 500 } }),
+        api.get('/bulletins', { params: { per_page: 9999 } }),
       ]);
       if (bordereauxRes.data.success) setBordereaux(bordereauxRes.data.data.filter(estRecent));
       if (bulletinsRes.data.success) {
@@ -1257,7 +1320,10 @@ export default function Bordereaux() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [filterAnnee, filterMois]);
+  // Ne pas rafraîchir les bulletins disponibles pendant qu'une modal est ouverte
+  useEffect(() => {
+    if (!showCreateModal && !editTarget) fetchData();
+  }, [filterMois, showCreateModal, editTarget]);
 
   const openCreateModal = () => {
     setBordereauForm({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
@@ -1380,6 +1446,56 @@ export default function Bordereaux() {
     }
   };
 
+  const toggleSelectBordereau = (id) => {
+    setSelectedBordereauIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedBordereauIds.length === bordereaux.length) {
+      setSelectedBordereauIds([]);
+    } else {
+      setSelectedBordereauIds(bordereaux.map(b => b.id_bordereau));
+    }
+  };
+
+  const openBatchEditModal = () => {
+    setBatchEditForm({ statut: '' });
+    setBatchEditMode(true);
+  };
+
+  const handleBatchEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!batchEditForm.statut || selectedBordereauIds.length === 0) return;
+    setBatchEditLoading(true);
+    try {
+      const responses = await Promise.allSettled(
+        selectedBordereauIds.map(async (id) => {
+          // Récupérer le bordereau d'abord pour ne pas écraser les autres champs
+          const { data: current } = await api.get(`/bordereaux/${id}`);
+          const bordereau = current.data || current;
+          return api.put(`/bordereaux/${id}`, {
+            numero_bordereau: bordereau.numero_bordereau,
+            date_envoi: bordereau.date_envoi || '',
+            statut: batchEditForm.statut,
+            commentaire: bordereau.commentaire || '',
+          });
+        })
+      );
+      const successCount = responses.filter(r => r.status === 'fulfilled').length;
+      const errorCount = responses.filter(r => r.status === 'rejected').length;
+      showNotif(`${successCount} bordereau(x) mis à jour en « ${batchEditForm.statut} »${errorCount > 0 ? ` (${errorCount} erreur(s))` : ''}.`);
+      setBatchEditMode(false);
+      setSelectedBordereauIds([]);
+      fetchData();
+    } catch (err) {
+      showNotif('Erreur lors de la modification groupée.', 'error');
+    } finally {
+      setBatchEditLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {notification && (
@@ -1396,17 +1512,6 @@ export default function Bordereaux() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Filtre année */}
-          <select
-            value={filterAnnee}
-            onChange={(e) => setFilterAnnee(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-          >
-            <option value="">Toutes années</option>
-            {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(a => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
           {/* Filtre mois */}
           <select
             value={filterMois}
@@ -1418,9 +1523,9 @@ export default function Bordereaux() {
               <option key={v} value={v}>{l}</option>
             ))}
           </select>
-          {(filterAnnee || filterMois) && (
+          {filterMois && (
             <button
-              onClick={() => { setFilterAnnee(''); setFilterMois(''); }}
+              onClick={() => { setFilterMois(''); }}
               className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
               title="Réinitialiser les filtres"
             >
@@ -1439,12 +1544,49 @@ export default function Bordereaux() {
         </div>
       </div>
 
+      {/* Batch action bar */}
+      {selectedBordereauIds.length > 0 && (
+        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <span className="text-sm text-blue-700 font-medium">{selectedBordereauIds.length} bordereau(x) sélectionné(s)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openBatchEditModal}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Modifier le statut
+            </button>
+            <button
+              onClick={() => setSelectedBordereauIds([])}
+              className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg transition"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Liste des bordereaux */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="w-10 px-2 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    checked={bordereaux.length > 0 && selectedBordereauIds.length === bordereaux.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">N° Bordereau</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Bulletins liés</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Validés</th>
@@ -1452,6 +1594,7 @@ export default function Bordereaux() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Sous contrôle</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">En attente</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Montant total</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Montant remboursé</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Date envoi</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Statut</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600 text-xs uppercase">Actions</th>
@@ -1463,9 +1606,17 @@ export default function Bordereaux() {
                 return (
                   <tr
                     key={b.id_bordereau}
-                    className="hover:bg-gray-50 transition cursor-pointer"
+                    className={`hover:bg-gray-50 transition cursor-pointer ${selectedBordereauIds.includes(b.id_bordereau) ? 'bg-blue-50/50' : ''}`}
                     onClick={() => setDetailTarget(b)}
                   >
+                    <td className="w-10 px-2 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedBordereauIds.includes(b.id_bordereau)}
+                        onChange={() => toggleSelectBordereau(b.id_bordereau)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-3 font-medium text-gray-900">{b.numero_bordereau}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
@@ -1503,6 +1654,11 @@ export default function Bordereaux() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-900 font-semibold">{Number(b.montant_total || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
+                    <td className="px-4 py-3 text-gray-900 font-semibold">
+                      {b.statut === 'Traité'
+                        ? Number(b.montant_rembourse || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' DT'
+                        : <span className="text-gray-400">-</span>}
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{b.date_envoi || '-'}</td>
                     <td className="px-4 py-3">
                         <span className={statutBordereauBadge(b.statut)}>{b.statut || 'En attente'}</span>
@@ -1524,7 +1680,7 @@ export default function Bordereaux() {
                         </button>
                         {b.statut === 'Traité' && b.fichier_reponse && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); setTablePdfPreview(`/storage/${b.fichier_reponse}`); }}
+                            onClick={(e) => { e.stopPropagation(); setTablePdfPreview(b.id_bordereau); }}
                             className="p-1.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
                             title="Voir le PDF réponse"
                           >
@@ -1548,7 +1704,7 @@ export default function Bordereaux() {
                 );
               })}
               {!loading && bordereaux.length === 0 && (
-                <tr><td colSpan={10} className="text-center py-8 text-gray-500">0 bordereau</td></tr>
+                <tr><td colSpan={12} className="text-center py-8 text-gray-500">0 bordereau</td></tr>
               )}
             </tbody>
           </table>
@@ -1615,6 +1771,64 @@ export default function Bordereaux() {
         />
       )}
 
+      {/* Batch edit modal */}
+      {batchEditMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setBatchEditMode(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Modification groupée</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{selectedBordereauIds.length} bordereau(x) sélectionné(s)</p>
+                </div>
+              </div>
+              <button onClick={() => setBatchEditMode(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
+            </div>
+            <form onSubmit={handleBatchEditSubmit} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  Nouveau statut <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={batchEditForm.statut}
+                  onChange={(e) => setBatchEditForm({ ...batchEditForm, statut: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                >
+                  <option value="">Sélectionner un statut…</option>
+                  <option value="En attente">En attente</option>
+                  <option value="Envoyé">Envoyé</option>
+                  <option value="Traité">Traité</option>
+                </select>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 flex items-start gap-2">
+                <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <span>Cette action modifiera le statut de <strong>{selectedBordereauIds.length} bordereau(x)</strong>. Cette opération est irréversible.</span>
+              </div>
+              <div className="pt-2 flex justify-end gap-3 border-t border-gray-100">
+                <button type="button" onClick={() => setBatchEditMode(false)} disabled={batchEditLoading} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition disabled:opacity-50">Annuler</button>
+                <button type="submit" disabled={batchEditLoading || !batchEditForm.statut} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
+                  {batchEditLoading && (
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  )}
+                  Appliquer à {selectedBordereauIds.length} bordereau(x)
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Vérification PDF modal */}
       {verifyPdfTarget && (
         <BordereauVerifierPdfModal
@@ -1628,7 +1842,7 @@ export default function Bordereaux() {
       {/* PDF réponse preview depuis le tableau */}
       {tablePdfPreview && (
         <ReponsePdfPreviewModal
-          fileUrl={tablePdfPreview}
+          idBordereau={tablePdfPreview}
           titre="PDF Réponse"
           onClose={() => setTablePdfPreview(null)}
         />

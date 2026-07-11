@@ -85,9 +85,37 @@ const statutBordereauBadge = (statut) => {
   return `inline-flex px-2 py-1 rounded-full text-xs font-medium border ${styles[statut] || 'bg-gray-50 text-gray-600 border-gray-200'}`;
 };
 
-function ReponsePdfPreviewModal({ fileUrl, titre, onClose }) {
+function ReponsePdfPreviewModal({ idBordereau, titre, onClose }) {
+  const [pdfUrl, setPdfUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!idBordereau) return;
+    let blobUrl = null;
+    setLoading(true);
+    setError('');
+
+    const fetchPdf = async () => {
+      try {
+        const response = await api.get(`/bordereaux/${idBordereau}/reponse-pdf`, {
+          responseType: 'blob',
+        });
+        blobUrl = URL.createObjectURL(response.data);
+        setPdfUrl(blobUrl);
+      } catch (err) {
+        setError('Impossible de charger le PDF r\u00e9ponse.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPdf();
+
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [idBordereau]);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
@@ -97,21 +125,36 @@ function ReponsePdfPreviewModal({ fileUrl, titre, onClose }) {
             <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
-            <h3 className="text-base font-semibold text-gray-900">{titre || 'PDF Réponse'}</h3>
+            <h3 className="text-base font-semibold text-gray-900">{titre || 'PDF R\u00e9ponse'}</h3>
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href={fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={async () => {
+                try {
+                  const response = await api.get(`/bordereaux/${idBordereau}/reponse-pdf`, {
+                    responseType: 'blob',
+                  });
+                  const blob = response.data;
+                  const blobUrl = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = blobUrl;
+                  link.download = `reponse_bordereau_${idBordereau}.pdf`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                } catch (err) {
+                  console.error('Erreur t\u00e9l\u00e9chargement PDF:', err);
+                }
+              }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0F2942] hover:bg-[#1A3A5C] rounded-lg transition"
-              title="Télécharger le PDF"
+              title="T\u00e9l\u00e9charger le PDF"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              Télécharger
-            </a>
+              T\u00e9l\u00e9charger
+            </button>
             <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -134,11 +177,11 @@ function ReponsePdfPreviewModal({ fileUrl, titre, onClose }) {
               <span className="text-sm">{error}</span>
             </div>
           )}
-          {!error && (
+          {pdfUrl && (
             <iframe
-              src={fileUrl}
+              src={pdfUrl}
               className="w-full h-full min-h-[65vh]"
-              title={titre || 'PDF Réponse'}
+              title={titre || 'PDF R\u00e9ponse'}
               onLoad={() => setLoading(false)}
               onError={() => { setError('Impossible de charger le PDF.'); setLoading(false); }}
             />
@@ -159,12 +202,23 @@ const etatBulletinBadge = (etat) => {
   return `inline-flex px-2 py-1 rounded-full text-xs font-medium border ${styles[etat] || 'bg-gray-50 text-gray-600 border-gray-200'}`;
 };
 
+const getMontantAffiche = (bulletin) => {
+  const etat = bulletin.etat || 'En attente';
+  if (etat === 'Rejeté' || etat === 'Sous contrôle') return 0;
+  // Validé → montant remboursé extrait du PDF réponse STIP (si disponible)
+  if (etat === 'Validé' && bulletin.montant_rembourse !== null && bulletin.montant_rembourse !== undefined) {
+    return Number(bulletin.montant_rembourse);
+  }
+  // En attente → montant réel (montant_depense)
+  return Number(bulletin.montant_depense || 0);
+};
+
 function BordereauDetailView({ bordereau, onBack }) {
   const [selectedBulletin, setSelectedBulletin] = useState(null);
   const [pdfPreview, setPdfPreview] = useState(null);
   const [reponsePdfPreview, setReponsePdfPreview] = useState(null);
   const bulletins = bordereau.bulletinSoins || bordereau.bulletin_soins || [];
-  const stats = bordereau.stats_bulletins || { en_attente: 0, valide: 0, rejete: 0, sous_controle: 0, total: 0 };
+  const stats = bordereau.stats_bulletins || { en_attente: 0, valide: 0, rejete: 0, sous_controle: 0, total: 0, montant_rembourse: 0 };
 
   if (selectedBulletin) {
     const totalMontant = (selectedBulletin.details || []).reduce((sum, d) => sum + Number(d.montant || 0), 0);
@@ -215,7 +269,7 @@ function BordereauDetailView({ bordereau, onBack }) {
                         Aperçu
                       </button>
                     )}
-                    <p className="text-lg font-bold text-gray-900">{Number(selectedBulletin.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
+                    <p className={`text-lg font-bold ${getMontantAffiche(selectedBulletin) === 0 && selectedBulletin.etat !== 'En attente' ? 'text-gray-400' : 'text-gray-900'}`}>{getMontantAffiche(selectedBulletin).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4 text-sm">
@@ -354,7 +408,7 @@ function BordereauDetailView({ bordereau, onBack }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="text-gray-600">Montant remboursé</span>
-            <span className="font-semibold text-emerald-700">{Number(bordereau.montant_total || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
+            <span className="font-semibold text-emerald-700">{Number(stats.montant_rembourse || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
           </span>
         </div>
       </div>
@@ -399,7 +453,7 @@ function BordereauDetailView({ bordereau, onBack }) {
                 </button>
               )}
               <div className="text-right">
-                <p className="text-sm font-semibold text-gray-900">{Number(bs.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
+                <p className={`text-sm font-semibold ${getMontantAffiche(bs) === 0 && bs.etat !== 'En attente' ? 'text-gray-400' : 'text-gray-900'}`}>{getMontantAffiche(bs).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</p>
                 {bs.details && bs.details.length > 0 && (
                   <p className="text-xs text-gray-400">{bs.details.length} détail(s)</p>
                 )}
@@ -419,7 +473,7 @@ function BordereauDetailView({ bordereau, onBack }) {
       {bordereau.fichier_reponse && (
         <div className="mt-5">
           <button
-            onClick={() => setReponsePdfPreview(`/storage/${bordereau.fichier_reponse}`)}
+            onClick={() => setReponsePdfPreview(bordereau.id_bordereau)}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -441,7 +495,7 @@ function BordereauDetailView({ bordereau, onBack }) {
 
       {reponsePdfPreview && (
         <ReponsePdfPreviewModal
-          fileUrl={reponsePdfPreview}
+          idBordereau={reponsePdfPreview}
           titre={`PDF Réponse - Bordereau N°${bordereau.numero_bordereau}`}
           onClose={() => setReponsePdfPreview(null)}
         />
@@ -472,7 +526,17 @@ export default function Historique() {
 
       const res = await api.get('/bordereaux', { params });
       if (res.data.success) {
-        setBordereaux(res.data.data.filter(b => b.statut === 'Traité'));
+        // Afficher dans l'Historique uniquement les bordereaux
+        // dont la date d'envoi date de plus d'un an
+        const ilYaUnAn = new Date();
+        ilYaUnAn.setFullYear(ilYaUnAn.getFullYear() - 1);
+        setBordereaux(res.data.data.filter(b => {
+          if (b.date_envoi) {
+            const dateEnvoi = new Date(b.date_envoi);
+            return dateEnvoi < ilYaUnAn;
+          }
+          return false;
+        }));
       }
     } catch (err) {
       console.error(err);
@@ -489,12 +553,10 @@ export default function Historique() {
     valides: bordereaux.reduce((sum, b) => sum + ((b.stats_bulletins?.valide || 0)), 0),
     rejetes: bordereaux.reduce((sum, b) => sum + ((b.stats_bulletins?.rejete || 0)), 0),
     sous_controle: bordereaux.reduce((sum, b) => sum + ((b.stats_bulletins?.sous_controle || 0)), 0),
-    // Montant remboursé : somme des montants_depense des bulletins Validé des bordereaux traités
+    // Montant remboursé : utilise le montant_rembourse stocké (Total Bordereau du PDF réponse)
+    // ou fallback sur la somme des bulletins validés
     montant_rembourse: bordereaux.reduce((sum, b) => {
-      const bulletins = b.bulletinSoins || b.bulletin_soins || [];
-      return sum + bulletins
-        .filter(bs => bs.etat === 'Validé')
-        .reduce((s, bs) => s + Number(bs.montant_depense || 0), 0);
+      return sum + (b.stats_bulletins?.montant_rembourse || 0);
     }, 0),
   };
 
@@ -516,7 +578,7 @@ export default function Historique() {
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Historique</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Bordereaux traités - <span className="font-medium">{stats.total} bordereau(x)</span>
+            Bordereaux archivés - <span className="font-medium">{stats.total} bordereau(x)</span>
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -573,6 +635,7 @@ export default function Historique() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Sous contrôle</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">En attente</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Montant total</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Montant remboursé</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Date envoi</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Date réponse</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Statut</th>
@@ -582,7 +645,7 @@ export default function Historique() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-10">
+                  <td colSpan={11} className="text-center py-10">
                     <svg className="animate-spin w-6 h-6 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -591,7 +654,7 @@ export default function Historique() {
                 </tr>
               ) : bordereaux.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-10 text-gray-400">
+                  <td colSpan={11} className="text-center py-10 text-gray-400">
                     <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
@@ -621,6 +684,11 @@ export default function Historique() {
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full text-xs font-medium">{s.en_attente}</span>
                       </td>
                       <td className="px-4 py-3 text-gray-900 font-semibold">{Number(b.montant_total || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
+                      <td className="px-4 py-3 text-gray-900 font-semibold">
+                        {b.statut === 'Traité'
+                          ? Number(b.montant_rembourse || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' DT'
+                          : <span className="text-gray-400">-</span>}
+                      </td>
                       <td className="px-4 py-3 text-gray-500">{b.date_envoi || '-'}</td>
                       <td className="px-4 py-3 text-gray-500">{b.date_reponse || '-'}</td>
                       <td className="px-4 py-3">
@@ -643,7 +711,7 @@ export default function Historique() {
                           </button>
                           {b.fichier_reponse && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); setTablePdfPreview(`/storage/${b.fichier_reponse}`); }}
+                              onClick={(e) => { e.stopPropagation(); setTablePdfPreview(b.id_bordereau); }}
                               className="p-1.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
                               title="Voir le PDF réponse"
                             >
@@ -665,7 +733,7 @@ export default function Historique() {
 
       {tablePdfPreview && (
         <ReponsePdfPreviewModal
-          fileUrl={tablePdfPreview}
+          idBordereau={tablePdfPreview}
           titre="PDF Réponse"
           onClose={() => setTablePdfPreview(null)}
         />

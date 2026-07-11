@@ -11,6 +11,7 @@ use App\Services\StipPdfParser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BordereauController extends Controller
 {
@@ -56,8 +57,12 @@ class BordereauController extends Controller
         $bordereau = Bordereau::create($data);
 
         // Associer les bulletins sélectionnés au bordereau
+        // et les remettre en "En attente" car ils ne sont pas encore traités
         BulletinSoin::whereIn('id_bulletin', $idBulletins)
-                    ->update(['id_bordereau' => $bordereau->id_bordereau]);
+                    ->update([
+                        'id_bordereau' => $bordereau->id_bordereau,
+                        'etat'         => 'En attente',
+                    ]);
 
         // Calculer le montant total à partir des bulletins associés
         $montantTotal = BulletinSoin::whereIn('id_bulletin', $idBulletins)->sum('montant_depense');
@@ -121,9 +126,13 @@ class BordereauController extends Controller
                     ->update(['id_bordereau' => null]);
 
         // Associer les nouveaux bulletins
+        // et les remettre en "En attente" car ils ne sont pas encore traités
         if (!empty($idBulletins)) {
             BulletinSoin::whereIn('id_bulletin', $idBulletins)
-                        ->update(['id_bordereau' => $bordereau->id_bordereau]);
+                        ->update([
+                            'id_bordereau' => $bordereau->id_bordereau,
+                            'etat'         => 'En attente',
+                        ]);
 
             // Recalculer le montant total
             $montantTotal = BulletinSoin::whereIn('id_bulletin', $idBulletins)->sum('montant_depense');
@@ -200,6 +209,11 @@ class BordereauController extends Controller
             'date_envoi' => now()->toDateString(),
         ]);
 
+        // Remettre tous les bulletins liés en "En attente"
+        // car le bordereau n'est pas encore traité (en attente du PDF réponse STIP)
+        BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
+                    ->update(['etat' => 'En attente']);
+
         // Journalisation
         BordereauLog::create([
             'id_bordereau' => $bordereau->id_bordereau,
@@ -269,7 +283,7 @@ class BordereauController extends Controller
             ], 404);
         }
 
-        if ($bordereau->statut !== 'Envoyé') {
+        if ($bordereau->statut !== 'Envoyé' && $bordereau->statut !== 'Traité') {
             return response()->json([
                 'success' => false,
                 'message' => 'Le bordereau doit être envoyé avant de pouvoir le vérifier avec un PDF de réponse.',
@@ -336,11 +350,24 @@ class BordereauController extends Controller
             $bulletinIndex[$bs->numero_bulletin] = $bs;
         }
 
-        // 5. Mettre à jour chaque bulletin trouvé dans le PDF
+        // 5. Dédupliquer les bulletins parsés du PDF
+        // Le PDF peut contenir plusieurs lignes pour un même numéro de bulletin
+        // (ex: lignes de détail qui commencent par le même numéro).
+        // On ne garde que la PREMIÈRE occurrence pour éviter d'écraser
+        // un statut 'Validé'/'Rejeté'/'Sous contrôle' par 'En attente'.
+        $deduplicated = [];
+        foreach ($parsedBulletins as $item) {
+            $num = $item['numero_bulletin'];
+            if (!isset($deduplicated[$num])) {
+                $deduplicated[$num] = $item;
+            }
+        }
+
+        // 6. Mettre à jour chaque bulletin trouvé dans le PDF
         $updated = [];
         $notFound = [];
 
-        foreach ($parsedBulletins as $item) {
+        foreach ($deduplicated as $item) {
             $numero = $item['numero_bulletin'];
 
             if (!isset($bulletinIndex[$numero])) {
@@ -350,13 +377,18 @@ class BordereauController extends Controller
 
             $bulletin = $bulletinIndex[$numero];
 
+            // Mettre à jour l'état ET le montant_rembourse du bulletin
+            // montant_rembourse = le montant remboursé extrait du PDF réponse STIP (pour les validés)
+            // montant_depense reste le montant saisi lors de la création du bulletin (inchangé)
             $updateData = ['etat' => $item['statut']];
 
-            if ($item['montant_rembourse'] !== null && $item['statut'] === 'Validé') {
-                $updateData['montant_depense'] = $item['montant_rembourse'];
+            // Sauvegarder le montant_rembourse extrait du PDF (pour les validés, null pour les autres)
+            if (array_key_exists('montant_rembourse', $item)) {
+                $updateData['montant_rembourse'] = $item['montant_rembourse'];
             }
 
             $bulletin->update($updateData);
+
             $updated[] = [
                 'id_bulletin'      => $bulletin->id_bulletin,
                 'numero_bulletin'  => $numero,
@@ -365,22 +397,29 @@ class BordereauController extends Controller
             ];
         }
 
-        // 6. Mettre à jour le bordereau avec le Total Bordereau du PDF
-        // Le "montant remboursé" = le Total Bordereau extrait du PDF
-        $montantFinal = $totalBordereauPdf;
+        // 6. Mettre à jour le bordereau
+        // - montant_rembourse = Total Bordereau extrait du PDF réponse
+        // - montant_total    = somme de tous les bulletins (validés, rejetés, sous contrôle)
+        $montantRembourse = $totalBordereauPdf;
 
-        // Fallback : si le Total Bordereau n'est pas trouvé, utiliser la somme des bulletins validés
-        if ($montantFinal === null) {
-            $montantFinal = BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
+        // Fallback : si le Total Bordereau n'est pas trouvé dans le PDF,
+        // utiliser la somme des bulletins validés
+        if ($montantRembourse === null) {
+            $montantRembourse = BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
                 ->where('etat', 'Validé')
                 ->sum('montant_depense');
         }
 
+        // Recalculer le montant_total = somme de tous les bulletins
+        $montantTotal = BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
+            ->sum('montant_depense');
+
         $bordereau->update([
-            'statut'         => 'Traité',
-            'fichier_reponse' => $pdfPath,
-            'date_reponse'   => now()->toDateString(),
-            'montant_total'  => $montantFinal,
+            'statut'             => 'Traité',
+            'fichier_reponse'    => $pdfPath,
+            'date_reponse'       => now()->toDateString(),
+            'montant_total'      => $montantTotal,
+            'montant_rembourse'  => $montantRembourse,
         ]);
 
         $bordereau->load(['bulletinSoins.adherent', 'bulletinSoins.sousAdherent', 'bulletinSoins.details']);
@@ -391,7 +430,7 @@ class BordereauController extends Controller
             'rejetes' => count(array_filter($updated, fn($u) => $u['etat'] === 'Rejeté')),
             'sous_controle' => count(array_filter($updated, fn($u) => $u['etat'] === 'Sous contrôle')),
             'non_trouves' => $notFound,
-            'montant_valide' => $montantFinal,
+            'montant_valide' => $montantRembourse,
             'total_bordereau_pdf' => $totalBordereauPdf,
             'fichier' => $pdfPath,
         ];
@@ -418,6 +457,168 @@ class BordereauController extends Controller
         }
 
         return response()->json($responseData);
+    }
+
+    /**
+     * Re-parse le PDF réponse déjà stocké pour mettre à jour les montant_rembourse
+     * de chaque bulletin. Utile pour les bordereaux traités avant l'ajout de la colonne.
+     */
+    public function reparerMontantRembourse(int $id): JsonResponse
+    {
+        $bordereau = Bordereau::with('bulletinSoins.adherent')->find($id);
+
+        if (!$bordereau) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bordereau introuvable.',
+            ], 404);
+        }
+
+        if (!$bordereau->fichier_reponse) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun fichier PDF réponse associé à ce bordereau.',
+            ], 400);
+        }
+
+        $disk = Storage::disk('public');
+        $fullPath = $disk->path($bordereau->fichier_reponse);
+
+        if (!$disk->exists($bordereau->fichier_reponse)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le fichier PDF réponse est introuvable sur le serveur.',
+            ], 404);
+        }
+
+        // Parser le PDF
+        $parser = app(StipPdfParser::class);
+
+        try {
+            $parsedResult = $parser->parse($fullPath);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de l\'analyse du PDF : ' . $e->getMessage(),
+            ], 422);
+        }
+
+        $parsedBulletins = $parsedResult['bulletins'];
+
+        if (empty($parsedBulletins)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun bulletin trouvé dans le PDF.',
+            ], 422);
+        }
+
+        // Indexer les bulletins
+        $bulletinIndex = [];
+        foreach ($bordereau->bulletinSoins as $bs) {
+            $bulletinIndex[$bs->numero_bulletin] = $bs;
+        }
+
+        // Dédupliquer les bulletins parsés du PDF (même raison que dans verifierPdf)
+        $deduplicated = [];
+        foreach ($parsedBulletins as $item) {
+            $num = $item['numero_bulletin'];
+            if (!isset($deduplicated[$num])) {
+                $deduplicated[$num] = $item;
+            }
+        }
+
+        // Mettre à jour chaque bulletin (une seule fois par numero)
+        $updated = [];
+        $notFound = [];
+
+        foreach ($deduplicated as $item) {
+            $numero = $item['numero_bulletin'];
+
+            if (!isset($bulletinIndex[$numero])) {
+                $notFound[] = $numero;
+                continue;
+            }
+
+            $bulletin = $bulletinIndex[$numero];
+
+            $updateData = [
+                'etat' => $item['statut'],
+                'montant_rembourse' => $item['montant_rembourse'],
+            ];
+
+            $bulletin->update($updateData);
+
+            $updated[] = [
+                'id_bulletin'      => $bulletin->id_bulletin,
+                'numero_bulletin'  => $numero,
+                'etat'             => $item['statut'],
+                'montant_rembourse' => $item['montant_rembourse'],
+            ];
+        }
+
+        // Mettre à jour le bordereau
+        $montantRembourse = $parsedResult['total_bordereau'];
+        if ($montantRembourse === null) {
+            $montantRembourse = BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
+                ->where('etat', 'Validé')
+                ->sum('montant_rembourse');
+        }
+
+        $bordereau->update(['montant_rembourse' => $montantRembourse]);
+
+        // Journalisation
+        BordereauLog::create([
+            'id_bordereau' => $bordereau->id_bordereau,
+            'id_user'      => request()->user()?->id,
+            'action'       => 'correction_montant_rembourse',
+            'details'      => [
+                'nb_bulletins'     => count($updated),
+                'nb_non_trouves'   => count($notFound),
+                'montant_rembourse' => $montantRembourse,
+            ],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => count($updated) . ' bulletin(s) mis à jour avec le montant_rembourse du PDF réponse.',
+            'data' => [
+                'updated' => $updated,
+                'not_found' => $notFound,
+            ],
+        ]);
+    }
+
+    /**
+     * Télécharge le fichier PDF réponse STIP associé à un bordereau.
+     */
+    public function reponsePdf(int $id): StreamedResponse|JsonResponse
+    {
+        $bordereau = Bordereau::find($id);
+
+        if (!$bordereau) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bordereau introuvable.',
+            ], 404);
+        }
+
+        if (!$bordereau->fichier_reponse) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucun fichier PDF réponse associé à ce bordereau.',
+            ], 404);
+        }
+
+        $disk = Storage::disk('public');
+
+        if (!$disk->exists($bordereau->fichier_reponse)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le fichier PDF réponse est introuvable sur le serveur.',
+            ], 404);
+        }
+
+        return $disk->download($bordereau->fichier_reponse, 'reponse_bordereau_' . $bordereau->numero_bordereau . '.pdf');
     }
 
 }

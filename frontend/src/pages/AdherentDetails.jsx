@@ -284,8 +284,8 @@ export default function AdherentDetails() {
             </h1>
             <p className="text-sm text-gray-500 mt-0.5">
               Matricule {adherent.matricule} · {adherent.cin ? `CIN ${adherent.cin}` : ''} ·{' '}
-              <span className={adherent.statut === 'Actif' ? 'text-emerald-600' : 'text-gray-400'}>
-                {adherent.statut}
+              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${adherent.statut?.toLowerCase() === 'actif' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-gray-100 text-gray-600 border border-gray-200'}`}>
+                {adherent.statut?.toLowerCase() === 'actif' ? 'Actif' : adherent.statut}
               </span>
             </p>
           </div>
@@ -357,7 +357,14 @@ export default function AdherentDetails() {
           <InfoField label="Adresse" value={adherent.adresse} />
           <InfoField label="CIN" value={adherent.cin} />
           <InfoField label="Téléphone" value={adherent.telephone} />
-          <InfoField label="Statut" value={adherent.statut} />
+          <div>
+            <span className="text-xs text-gray-500 uppercase tracking-wide">Statut</span>
+            <p className="text-sm font-medium text-gray-900 mt-0.5">
+              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${adherent.statut?.toLowerCase() === 'actif' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-gray-100 text-gray-600 border border-gray-200'}`}>
+                {adherent.statut?.toLowerCase() === 'actif' ? 'Actif' : adherent.statut}
+              </span>
+            </p>
+          </div>
         </div>
       </div>
 

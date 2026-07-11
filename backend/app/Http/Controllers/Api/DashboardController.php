@@ -23,8 +23,11 @@ class DashboardController extends Controller
         $bulletinsRejetes = BulletinSoin::where('etat', 'Rejeté')->count();
         $bulletinsSousControle = BulletinSoin::where('etat', 'Sous contrôle')->count();
 
-        $montantTotal = BulletinSoin::where('etat', 'Validé')
-                                     ->sum('montant_depense');
+        // Montant remboursé = somme des montant_rembourse des bordereaux traités
+        // (Total Bordereau extrait du PDF réponse STIP)
+        $montantTotal = Bordereau::where('statut', 'Traité')
+                                  ->whereNotNull('montant_rembourse')
+                                  ->sum('montant_rembourse');
 
         return response()->json([
             'success' => true,
