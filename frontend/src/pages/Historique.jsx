@@ -209,7 +209,7 @@ const getMontantAffiche = (bulletin) => {
   if (etat === 'Validé' && bulletin.montant_rembourse !== null && bulletin.montant_rembourse !== undefined) {
     return Number(bulletin.montant_rembourse);
   }
-  // En attente → montant réel (montant_depense)
+  // En attente ou Validé sans montant_rembourse → montant réel (montant_depense)
   return Number(bulletin.montant_depense || 0);
 };
 
@@ -469,9 +469,9 @@ function BordereauDetailView({ bordereau, onBack }) {
         )}
       </div>
 
-      {/* Voir PDF réponse */}
+      {/* Actions PDF et réparation */}
       {bordereau.fichier_reponse && (
-        <div className="mt-5">
+        <div className="mt-5 flex items-center gap-3">
           <button
             onClick={() => setReponsePdfPreview(bordereau.id_bordereau)}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition"

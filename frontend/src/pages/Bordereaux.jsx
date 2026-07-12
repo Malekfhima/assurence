@@ -27,7 +27,7 @@ const getMontantAffiche = (bulletin) => {
   if (etat === 'Validé' && bulletin.montant_rembourse !== null && bulletin.montant_rembourse !== undefined) {
     return Number(bulletin.montant_rembourse);
   }
-  // En attente → montant réel (montant_depense)
+  // En attente ou Validé sans montant_rembourse → montant réel (montant_depense)
   return Number(bulletin.montant_depense || 0);
 };
 

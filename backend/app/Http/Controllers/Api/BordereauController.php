@@ -17,7 +17,7 @@ class BordereauController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Bordereau::with(['bulletinSoins.adherent:id_adherent,nom,prenom,matricule', 'bulletinSoins.sousAdherent:id_sous_adherent,nom,prenom', 'bulletinSoins.details']);
+        $query = Bordereau::with(['bulletinSoins.adherent:id_adherent,nom,prenom,matricule', 'bulletinSoins.sousAdherent:id_sous_adherent,nom,prenom', 'bulletinSoins.details', 'logs']);
 
         // Filtre par adhérent (via les bulletins de soin liés)
         if ($idAdherent = $request->get('id_adherent')) {
@@ -89,7 +89,7 @@ class BordereauController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $bordereau = Bordereau::with(['bulletinSoins.adherent', 'bulletinSoins.sousAdherent', 'bulletinSoins.details'])->find($id);
+        $bordereau = Bordereau::with(['bulletinSoins.adherent', 'bulletinSoins.sousAdherent', 'bulletinSoins.details', 'logs'])->find($id);
 
         if (!$bordereau) {
             return response()->json([
