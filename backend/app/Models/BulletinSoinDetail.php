@@ -12,7 +12,7 @@ class BulletinSoinDetail extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'id_bulletin', 'date', 'montant',
+        'id_bulletin', 'date', 'montant', 'montant_rembourse',
         'type_soin',
     ];
 
@@ -21,6 +21,7 @@ class BulletinSoinDetail extends Model
         return [
             'date' => 'date:Y-m-d',
             'montant' => 'decimal:3',
+            'montant_rembourse' => 'decimal:3',
         ];
     }
 

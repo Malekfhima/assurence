@@ -7,6 +7,7 @@ use App\Http\Requests\BordereauRequest;
 use App\Models\Bordereau;
 use App\Models\BordereauLog;
 use App\Models\BulletinSoin;
+use App\Models\BulletinSoinDetail;
 use App\Services\StipPdfParser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -113,6 +114,14 @@ class BordereauController extends Controller
                 'success' => false,
                 'message' => 'Bordereau introuvable.',
             ], 404);
+        }
+
+        // Un bordereau traité ne peut plus être modifié
+        if ($bordereau->statut === 'Traité') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Un bordereau traité ne peut plus être modifié.',
+            ], 422);
         }
 
         $data = $request->validated();
@@ -336,6 +345,7 @@ class BordereauController extends Controller
 
         $parsedBulletins = $parsedResult['bulletins'];
         $totalBordereauPdf = $parsedResult['total_bordereau'];
+        $detailsParBulletin = $parsedResult['details_par_bulletin'] ?? [];
 
         if (empty($parsedBulletins)) {
             return response()->json([
@@ -366,6 +376,8 @@ class BordereauController extends Controller
         // 6. Mettre à jour chaque bulletin trouvé dans le PDF
         $updated = [];
         $notFound = [];
+        $totalDetailsUpdated = 0;
+        $totalDetailsCreated = 0;
 
         foreach ($deduplicated as $item) {
             $numero = $item['numero_bulletin'];
@@ -389,11 +401,26 @@ class BordereauController extends Controller
 
             $bulletin->update($updateData);
 
+            // Mettre à jour les détails par soin si disponibles dans le PDF
+            $bulletinsDetailsUpdated = 0;
+            $bulletinsDetailsCreated = 0;
+
+            if (isset($detailsParBulletin[$numero])) {
+                $resultatDetails = $this->updateBulletinDetails($bulletin, $detailsParBulletin[$numero]);
+                $bulletinsDetailsUpdated = $resultatDetails['updated'];
+                $bulletinsDetailsCreated = $resultatDetails['created'];
+            }
+
+            $totalDetailsUpdated += $bulletinsDetailsUpdated;
+            $totalDetailsCreated += $bulletinsDetailsCreated;
+
             $updated[] = [
-                'id_bulletin'      => $bulletin->id_bulletin,
-                'numero_bulletin'  => $numero,
-                'etat'             => $item['statut'],
-                'montant_rembourse' => $item['montant_rembourse'],
+                'id_bulletin'        => $bulletin->id_bulletin,
+                'numero_bulletin'    => $numero,
+                'etat'               => $item['statut'],
+                'montant_rembourse'  => $item['montant_rembourse'],
+                'details_updated'    => $bulletinsDetailsUpdated,
+                'details_created'    => $bulletinsDetailsCreated,
             ];
         }
 
@@ -433,6 +460,8 @@ class BordereauController extends Controller
             'montant_valide' => $montantRembourse,
             'total_bordereau_pdf' => $totalBordereauPdf,
             'fichier' => $pdfPath,
+            'details_maj' => $totalDetailsUpdated,
+            'details_crees' => $totalDetailsCreated,
         ];
 
         BordereauLog::create([
@@ -504,6 +533,7 @@ class BordereauController extends Controller
         }
 
         $parsedBulletins = $parsedResult['bulletins'];
+        $detailsParBulletin = $parsedResult['details_par_bulletin'] ?? [];
 
         if (empty($parsedBulletins)) {
             return response()->json([
@@ -548,6 +578,11 @@ class BordereauController extends Controller
 
             $bulletin->update($updateData);
 
+            // Mettre à jour les détails par soin si disponibles dans le PDF
+            if (isset($detailsParBulletin[$numero])) {
+                $this->updateBulletinDetails($bulletin, $detailsParBulletin[$numero]);
+            }
+
             $updated[] = [
                 'id_bulletin'      => $bulletin->id_bulletin,
                 'numero_bulletin'  => $numero,
@@ -586,6 +621,210 @@ class BordereauController extends Controller
                 'not_found' => $notFound,
             ],
         ]);
+    }
+
+    /**
+     * Met à jour les BulletinSoinDetail d'un bulletin à partir des lignes parsées du PDF.
+     *
+     * Algorithme en deux passes :
+     *   PASS 1 : correspondance EXACTE par code rubrique (type_soin)
+     *   PASS 2 : pour les lignes PDF non matchées, tenter de fusionner dans un detail
+     *            existant non utilisé dont le montant correspond à la somme des frais
+     *
+     * @param  BulletinSoin  $bulletin
+     * @param  array  $detailData  ['lignes' => [...], 'total_frais' => ?, 'total_rembourse' => ?]
+     * @return array  ['updated' => int, 'created' => int]
+     */
+    private function updateBulletinDetails($bulletin, array $detailData): array
+    {
+        $updated = 0;
+        $created = 0;
+        $coherenceOk = true;
+
+        try {
+            // Remettre à zéro les montant_rembourse avant de recalculer
+            $bulletin->details()->update(['montant_rembourse' => null]);
+
+            // Recharger les détails existants
+            $existingDetails = $bulletin->details()->get();
+
+            // Initialiser les trackers d'index
+            $usedDetailIds = [];          // IDs des details déjà assignés en passe 1
+            $remainingPdfIndices = [];    // indices des lignes PDF non matchées en passe 1
+
+            // --- PASS 1 : correspondance EXACTE par code rubrique ---
+            foreach ($detailData['lignes'] as $idx => $ligne) {
+                $rubrique = strtolower(trim($ligne['rubrique']));
+                $matched = false;
+
+                foreach ($existingDetails as $detail) {
+                    $detailRubrique = strtolower(trim($detail->type_soin ?? ''));
+                    if ($detailRubrique === $rubrique && !in_array($detail->id_detail, $usedDetailIds, true)) {
+                        $detailUpdate = ['montant_rembourse' => $ligne['rembourse']];
+                        if ($detail->montant === null || (float) $detail->montant === 0.0) {
+                            $detailUpdate['montant'] = $ligne['frais'];
+                        }
+                        $detail->update($detailUpdate);
+                        $usedDetailIds[] = $detail->id_detail;
+                        $matched = true;
+                        $updated++;
+                        break;
+                    }
+                }
+
+                if (!$matched) {
+                    $remainingPdfIndices[] = $idx;
+                }
+            }
+
+            // --- PASS 2 : fusion par somme des frais (pour rubriques fusionnées en base) ---
+            // Construire la liste des détails non utilisés
+            $unusedDetails = [];
+            foreach ($existingDetails as $d) {
+                if (!in_array($d->id_detail, $usedDetailIds, true)) {
+                    $unusedDetails[] = $d;
+                }
+            }
+
+            // Indices des lignes PDF déjà traitées en passe 2
+            $processedPdfIndices = [];
+
+            // Parcourir les lignes PDF restantes par index pour éviter les modifications pendant l'itération
+            for ($pi = 0; $pi < count($remainingPdfIndices); $pi++) {
+                $idx = $remainingPdfIndices[$pi];
+                if (in_array($idx, $processedPdfIndices, true)) continue;
+
+                $ligne = $detailData['lignes'][$idx];
+                $rubrique = $ligne['rubrique'];
+                $ligneFrais = $ligne['frais'];
+                $ligneRembourse = $ligne['rembourse'];
+                $matched = false;
+
+                // Chercher un detail non utilisé dont le montant correspond
+                foreach ($unusedDetails as $udIdx => $detail) {
+                    $detailMontant = (float) $detail->montant;
+
+                    // Cas 1 : cette ligne PDF seule correspond au montant du detail
+                    if (abs($detailMontant - $ligneFrais) < 0.01) {
+                        $detail->update(['montant_rembourse' => $ligneRembourse]);
+                        unset($unusedDetails[$udIdx]);
+                        $processedPdfIndices[] = $idx;
+                        $matched = true;
+                        $updated++;
+                        break;
+                    }
+
+                    // Cas 2 : cette ligne PDF + d'autres lignes restantes = montant du detail
+                    // (ex: OPM(350k) + OPV(200k) = 550k = OPM existant)
+                    // Collecter les indices des lignes à grouper avec celle-ci
+                    $groupIndices = [$idx];
+                    $groupFrais = $ligneFrais;
+                    $groupRembourse = $ligneRembourse;
+
+                    for ($pj = $pi + 1; $pj < count($remainingPdfIndices); $pj++) {
+                        $jdx = $remainingPdfIndices[$pj];
+                        if (in_array($jdx, $processedPdfIndices, true)) continue;
+                        $otherLigne = $detailData['lignes'][$jdx];
+                        $testFrais = $groupFrais + $otherLigne['frais'];
+                        if (abs($detailMontant - $testFrais) < 0.01) {
+                            $groupFrais = $testFrais;
+                            $groupRembourse += $otherLigne['rembourse'];
+                            $groupIndices[] = $jdx;
+                        }
+                    }
+
+                    if (abs($detailMontant - $groupFrais) < 0.01) {
+                        // Les frais correspondent : fusionner les remboursements
+                        $detail->update(['montant_rembourse' => $groupRembourse]);
+                        unset($unusedDetails[$udIdx]);
+                        foreach ($groupIndices as $gi) {
+                            $processedPdfIndices[] = $gi;
+                        }
+                        $matched = true;
+                        $updated++;
+                        break;
+                    }
+                }
+
+                if (!$matched) {
+                    // Créer une NOUVELLE ligne BulletinSoinDetail
+                    BulletinSoinDetail::create([
+                        'id_bulletin'       => $bulletin->id_bulletin,
+                        'type_soin'         => $rubrique,
+                        'montant'           => $ligne['frais'],
+                        'montant_rembourse' => $ligne['rembourse'],
+                        'date'              => $bulletin->date_soin ?? now()->toDateString(),
+                    ]);
+                    $processedPdfIndices[] = $idx;
+                    $created++;
+                }
+            }
+
+            // --- CONTROLE DE COHÉRENCE ---
+            $coherenceOk = $this->verifierCoherenceDetail($bulletin, $detailData);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Erreur updateBulletinDetails bulletin ' . ($bulletin->numero_bulletin ?? '?') . ': ' . $e->getMessage());
+        }
+
+        return ['updated' => $updated, 'created' => $created, 'coherence_ok' => $coherenceOk];
+    }
+
+    /**
+     * Vérifie que la somme des montant_rembourse des détails correspond
+     * au total attendu du PDF (NET A REGLER).
+     * Log dans BordereauLog si incohérence.
+     *
+     * @return bool  true si cohérent, false sinon
+     */
+    private function verifierCoherenceDetail($bulletin, array $detailData): bool
+    {
+        $totalAttendu = $detailData['total_rembourse'] ?? null;
+        if ($totalAttendu === null) return true;
+
+        $totalCalcule = (float) $bulletin->details()->sum('montant_rembourse');
+        $ecart = abs($totalCalcule - $totalAttendu);
+
+        if ($ecart <= 0.01) return true;
+
+        $detailsList = $bulletin->details()->get()->map(fn($d) => [
+            'id' => $d->id_detail,
+            'type_soin' => $d->type_soin,
+            'montant' => $d->montant,
+            'montant_rembourse' => $d->montant_rembourse,
+        ])->toArray();
+
+        // Log dans BordereauLog via le bordereau parent
+        $bordereauId = $bulletin->id_bordereau;
+        if ($bordereauId) {
+            try {
+                BordereauLog::create([
+                    'id_bordereau' => $bordereauId,
+                    'id_user'      => null,
+                    'action'       => 'incoherence_details',
+                    'details'      => [
+                        'bulletin'         => $bulletin->numero_bulletin,
+                        'total_attendu'    => $totalAttendu,
+                        'total_calcule'    => $totalCalcule,
+                        'ecart'            => $ecart,
+                        'details'          => $detailsList,
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                // Ne pas bloquer si le log échoue
+            }
+        }
+
+        \Illuminate\Support\Facades\Log::warning(sprintf(
+            'INCOHERENCE bulletin %s: attendu=%.3f calcule=%.3f ecart=%.3f details=%s',
+            $bulletin->numero_bulletin ?? '?',
+            $totalAttendu,
+            $totalCalcule,
+            $ecart,
+            json_encode($detailsList)
+        ));
+
+        return false;
     }
 
     /**

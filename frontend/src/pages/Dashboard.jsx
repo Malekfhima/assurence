@@ -5,6 +5,7 @@ const defaultStats = {
   total_adherents: 0, total_sous_adherents: 0, total_bulletins: 0, total_bordereaux: 0,
   bulletins_en_attente: 0, bulletins_valides: 0, bulletins_rejetes: 0,
   montant_total_rembourse: '0',
+  annees_disponibles: [],
 };
 
 const icons = {
@@ -22,6 +23,7 @@ const icons = {
 export default function Dashboard() {
   const [stats, setStats] = useState(defaultStats);
   const [loading, setLoading] = useState(true);
+  const [annee, setAnnee] = useState(() => String(new Date().getFullYear()));
   const [notification, setNotification] = useState(null);
 
   const showNotif = (msg, type = 'success') => {
@@ -29,21 +31,28 @@ export default function Dashboard() {
     setTimeout(() => setNotification(null), 3000);
   };
 
+  const fetchStats = async (selectedAnnee) => {
+    try {
+      const params = {};
+      if (selectedAnnee) params.annee = selectedAnnee;
+      const res = await api.get('/dashboard/stats', { params });
+      if (res.data.success) setStats(res.data.data);
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des statistiques.';
+      console.error('Erreur chargement stats:', err);
+      showNotif(msg, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await api.get('/dashboard/stats');
-        if (res.data.success) setStats(res.data.data);
-      } catch (err) {
-        const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des statistiques.';
-        console.error('Erreur chargement stats:', err);
-        showNotif(msg, 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStats();
-  }, []);
+    fetchStats(annee);
+  }, [annee]);
+
+  const handleAnneeChange = (e) => {
+    setAnnee(e.target.value);
+  };
 
   const cards = [
     { label: 'Adhérents', value: stats.total_adherents, gradient: 'from-blue-400 to-blue-600', shadow: 'shadow-blue-500/20', icon: icons.adherents },
@@ -59,6 +68,18 @@ export default function Dashboard() {
     { label: 'Rejetés', value: stats.bulletins_rejetes, gradient: 'from-red-400 to-red-600', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', accent: 'border-l-red-500', icon: icons.rejetes },
     { label: 'Sous contrôle', value: stats.bulletins_sous_controle, gradient: 'from-purple-400 to-purple-600', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200', accent: 'border-l-purple-500', icon: icons.sousControle },
   ];
+
+  // Build year options from available years + current year + some history
+  const yearOptions = (() => {
+    const years = [...(stats.annees_disponibles || [])];
+    const currentYear = new Date().getFullYear();
+    if (!years.includes(currentYear)) years.push(currentYear);
+    // Include some past years if no data
+    for (let y = currentYear - 5; y <= currentYear; y++) {
+      if (!years.includes(y)) years.push(y);
+    }
+    return years.sort((a, b) => b - a); // descending
+  })();
 
   if (loading) {
     return (
@@ -88,9 +109,26 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">Tableau de bord</h1>
-        <p className="text-sm text-gray-500 mt-1">Vue d'ensemble de votre activité</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Tableau de bord</h1>
+          <p className="text-sm text-gray-500 mt-1">Vue d'ensemble de votre activité</p>
+        </div>
+        {/* Year selector */}
+        <div className="relative">
+          <select
+            value={annee}
+            onChange={handleAnneeChange}
+            className="px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white appearance-none cursor-pointer"
+          >
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
       </div>
 
       {/* Stats cards */}

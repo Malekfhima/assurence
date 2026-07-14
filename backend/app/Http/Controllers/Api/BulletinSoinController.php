@@ -31,9 +31,13 @@ class BulletinSoinController extends Controller
             });
         }
 
-        // Filtre par état
+        // Filtre par état (support single value or array)
         if ($etat = $request->get('etat')) {
-            $query->where('etat', $etat);
+            if (is_array($etat)) {
+                $query->whereIn('etat', $etat);
+            } else {
+                $query->where('etat', $etat);
+            }
         }
 
         // Filtre par adhérent

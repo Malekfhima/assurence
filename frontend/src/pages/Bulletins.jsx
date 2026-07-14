@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
+import SearchableSelect from '../components/SearchableSelect';
 
 const TYPE_SOIN_OPTIONS = [
   'C1',
@@ -13,8 +14,7 @@ const TYPE_SOIN_OPTIONS = [
   'B',
   'KC',
   'MS','R','KE','AM','OPM','OPV','D1','D2','HH','HC','S.DENT',
-  'LABO',
-  'RADIO',
+  'ERK',
   'Naissance',
 ];
 
@@ -136,10 +136,15 @@ function PdfPreviewModal({ bulletin, onClose }) {
   );
 }
 
-function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdherents, errors, pdfFile, existingPdf, onSubmit, onChange, onMatriculeChange, onDetailChange, onAddDetail, onRemoveDetail, onPdfChange, onRemovePdf, onClose, onPreviewPdf }) {
-  const selectedAdherent = matchedAdherent || adherents.find((a) => a.id_adherent === Number(form.id_adherent));
+function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdherents, errors, pdfFile, existingPdf, onSubmit, onChange, onAdherentChange, onDetailChange, onAddDetail, onRemoveDetail, onPdfChange, onRemovePdf, onClose, onPreviewPdf }) {
   const totalMontant = details.reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
   const pdfInputRef = useRef(null);
+
+  // Options pour le SearchableSelect adhérent
+  const adherentOptions = adherents.map((a) => ({
+    value: String(a.id_adherent),
+    label: `${a.matricule || ''} — ${a.nom} ${a.prenom}`.trim(),
+  }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -151,25 +156,21 @@ function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdher
         <form onSubmit={onSubmit} className="p-5 space-y-4">
           {/* En-tête bulletin */}
           <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Matricule <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={form.matricule_saisi || ''}
-                onChange={(e) => onMatriculeChange(e.target.value)}
-                placeholder="Tapez le matricule"
-                className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.id_adherent ? 'border-red-400' : 'border-gray-300'}`}
-              />
-              {errors.id_adherent && <p className="text-xs text-red-500 mt-1">{errors.id_adherent}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Nom de l'adhérent</label>
-              <input
-                type="text"
-                value={selectedAdherent ? `${selectedAdherent.nom} ${selectedAdherent.prenom}` : ''}
-                readOnly
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-600"
-                placeholder="Automatique"
+            <div className="col-span-1">
+              <SearchableSelect
+                label="Adhérent"
+                options={adherentOptions}
+                value={form.id_adherent ? String(form.id_adherent) : ''}
+                onChange={(val) => onAdherentChange(val ? Number(val) : null)}
+                placeholder="Tapez un matricule ou un nom..."
+                error={errors.id_adherent}
+                required
+                filterFn={(option, query) => {
+                  const q = query.toLowerCase();
+                  return option.label.toLowerCase().includes(q);
+                }}
+                onClear={() => onAdherentChange(null)}
+                noOptionsMessage="Aucun adhérent trouvé"
               />
             </div>
             <div>
@@ -225,12 +226,15 @@ function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdher
                         <input type="text" inputMode="decimal" value={d.montant} onChange={(e) => { let val = e.target.value.replace(/[^0-9.,]/g, ''); val = val.replace(',', '.'); onDetailChange(i, 'montant', val); }} placeholder="Montant" className="w-full max-w-[120px] px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none text-right" />
                       </td>
                       <td className="px-3 py-1.5">
-                        <select value={d.type_soin} onChange={(e) => onDetailChange(i, 'type_soin', e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                          <option value="">Sélectionner</option>
-                          {TYPE_SOIN_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
+                        <SearchableSelect
+                          options={TYPE_SOIN_OPTIONS}
+                          value={d.type_soin}
+                          onChange={(val) => onDetailChange(i, 'type_soin', val)}
+                          placeholder={i === 0 ? "Sélectionner" : ""}
+                          clearable={false}
+                          className="min-w-[130px]"
+                          noOptionsMessage="Aucun type"
+                        />
                       </td>
                       <td className="px-3 py-1.5 text-center">
                         <button type="button" onClick={() => onRemoveDetail(i)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition" title="Supprimer">
@@ -391,6 +395,8 @@ function BordereauModal({ selectedBulletins, form, setForm, onSubmit, onClose, l
 
 function ViewBulletinModal({ bulletin, onClose, onEdit, onPreviewPdf }) {
   const totalMontant = (bulletin.details || []).reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
+  const totalRembourse = (bulletin.details || []).reduce((sum, d) => sum + Number(d.montant_rembourse || 0), 0);
+  const showRembourse = true;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -473,36 +479,51 @@ function ViewBulletinModal({ bulletin, onClose, onEdit, onPreviewPdf }) {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase">Date</th>
-                    <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs uppercase">Montant</th>
                     <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs uppercase">Type de soin</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs uppercase">Frais</th>
+                    {showRembourse && (
+                      <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs uppercase">Remboursé</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {(bulletin.details || []).map((d, i) => (
                     <tr key={i} className="hover:bg-gray-50">
                       <td className="px-3 py-2 text-gray-700">{d.date || '-'}</td>
-                      <td className="px-3 py-2 text-right font-medium text-gray-900">
-                        {Number(d.montant || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
-                      </td>
                       <td className="px-3 py-2">
                         {d.type_soin ? (
                           <span className="inline-flex px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">{d.type_soin}</span>
                         ) : '-'}
                       </td>
+                      <td className="px-3 py-2 text-right font-medium text-gray-900">
+                        {Number(d.montant || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                      </td>
+                      {showRembourse && (
+                        <td className="px-3 py-2 text-right">
+                          {d.montant_rembourse !== null && d.montant_rembourse !== undefined ? (
+                            <span className="font-medium text-emerald-600">{Number(d.montant_rembourse).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
+                          ) : (
+                            <span className="text-gray-300">-</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {(bulletin.details || []).length === 0 && (
                     <tr>
-                      <td colSpan={3} className="text-center py-6 text-gray-400 text-xs">Aucun détail de soin</td>
+                      <td colSpan={showRembourse ? 4 : 3} className="text-center py-6 text-gray-400 text-xs">Aucun détail de soin</td>
                     </tr>
                   )}
                 </tbody>
                 <tfoot className="bg-gray-50 border-t border-gray-200">
                   <tr>
-                    <td colSpan={2} className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Montant total</td>
+                    <td colSpan={showRembourse ? 2 : 2} className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Total</td>
                     <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
                       {totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
                     </td>
+                    {showRembourse && (
+                      <td className="px-3 py-2 text-right text-sm font-bold text-emerald-600">{totalRembourse.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
+                    )}
                   </tr>
                 </tfoot>
               </table>
@@ -584,11 +605,10 @@ export default function Bulletins() {
   const [pdfPreview, setPdfPreview] = useState(null);
   const [pdfFile, setPdfFile] = useState(null);
   const [viewBulletin, setViewBulletin] = useState(null);
-  const [form, setForm] = useState({ id_adherent: '', id_sous_adherent: '', numero_bulletin: '', etat: 'En attente', matricule_saisi: '' });
+  const [form, setForm] = useState({ id_adherent: '', id_sous_adherent: '', numero_bulletin: '', etat: 'En attente' });
   const [details, setDetails] = useState([]);
   const [errors, setErrors] = useState({});
   const [notification, setNotification] = useState(null);
-  const matriculeTimeoutRef = useRef(null);
 
   // Bordereau state
   const [selectedBulletinIds, setSelectedBulletinIds] = useState([]);
@@ -699,7 +719,6 @@ export default function Bulletins() {
         id_sous_adherent: bulletin.id_sous_adherent || '',
         numero_bulletin: bulletin.numero_bulletin,
         etat: bulletin.etat || 'En attente',
-        matricule_saisi: editAdherent?.matricule || '',
         id_bulletin: bulletin.id_bulletin,
       });
       setDetails((bulletin.details || []).map((d) => ({
@@ -712,6 +731,8 @@ export default function Bulletins() {
           const res = await api.get(`/adherents/${bulletin.id_adherent}`);
           if (res.data.success) {
             setSousAdherents(res.data.data.sous_adherents || []);
+            // Also set matchedAdherent for the searchable select display
+            setMatchedAdherent(res.data.data);
           }
         } catch (err) {
           const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des sous-adhérents.';
@@ -724,7 +745,7 @@ export default function Bulletins() {
       setSelected(null);
       setMatchedAdherent(null);
       setPdfFile(null);
-      setForm({ id_adherent: '', id_sous_adherent: '', numero_bulletin: '', etat: 'En attente', matricule_saisi: '' });
+      setForm({ id_adherent: '', id_sous_adherent: '', numero_bulletin: '', etat: 'En attente' });
       setSousAdherents([]);
       setDetails([emptyDetail()]);
     }
@@ -745,34 +766,42 @@ export default function Bulletins() {
     setErrors((prev) => ({ ...prev, [field]: '' }));
   };
 
-  const handleMatriculeChange = (value) => {
-    setForm((prev) => ({ ...prev, matricule_saisi: value }));
+  const handleAdherentSelect = (adherentId) => {
     setErrors((prev) => ({ ...prev, id_adherent: '' }));
 
-    if (!value) {
+    if (!adherentId) {
       setForm((prev) => ({ ...prev, id_adherent: '', id_sous_adherent: '' }));
       setMatchedAdherent(null);
       setSousAdherents([]);
       return;
     }
 
-    // Debounce : attendre 300ms avant de lancer la recherche
-    if (matriculeTimeoutRef.current) {
-      clearTimeout(matriculeTimeoutRef.current);
-    }
-
-    matriculeTimeoutRef.current = setTimeout(async () => {
-      const adherent = await fetchAdherentByMatricule(value);
-      if (adherent) {
-        setForm((prev) => ({
-          ...prev,
-          id_adherent: adherent.id_adherent,
-          id_sous_adherent: '',
-        }));
+    // Find the adherent in the loaded list
+    const adherent = adherents.find((a) => a.id_adherent === Number(adherentId));
+    if (adherent) {
+      setForm((prev) => ({
+        ...prev,
+        id_adherent: adherent.id_adherent,
+        id_sous_adherent: '',
+      }));
+      setMatchedAdherent(adherent);
+      // Try to get sous-adherents from the loaded data, or fetch them
+      if (adherent.sous_adherents && adherent.sous_adherents.length > 0) {
+        setSousAdherents(adherent.sous_adherents);
       } else {
-        setForm((prev) => ({ ...prev, id_adherent: '', id_sous_adherent: '' }));
+        // Fetch full adherent data with sous-adherents
+        (async () => {
+          try {
+            const res = await api.get(`/adherents/${adherent.id_adherent}`);
+            if (res.data.success) {
+              setSousAdherents(res.data.data.sous_adherents || []);
+            }
+          } catch (err) {
+            console.error('Erreur chargement sous-adhérents:', err);
+          }
+        })();
       }
-    }, 300);
+    }
   };
 
   const handleDetailChange = (index, field, value) => {
@@ -1235,7 +1264,7 @@ export default function Bulletins() {
           existingPdf={selected?.pdf_path || null}
           onSubmit={handleSubmit}
           onChange={handleFormChange}
-          onMatriculeChange={handleMatriculeChange}
+          onAdherentChange={handleAdherentSelect}
           onDetailChange={handleDetailChange}
           onAddDetail={handleAddDetail}
           onRemoveDetail={handleRemoveDetail}

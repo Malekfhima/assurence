@@ -273,6 +273,8 @@ function PdfPreviewModal({ bulletin, onClose }) {
 
 function BulletinDetailView({ bulletin, onBack, onPreviewPdf, onEditBulletin }) {
   const totalMontant = (bulletin.details || []).reduce((sum, d) => sum + Number(d.montant || 0), 0);
+  const totalRembourse = (bulletin.details || []).reduce((sum, d) => sum + Number(d.montant_rembourse || 0), 0);
+  const showRembourse = true;
 
   return (
     <div className="flex-1 overflow-y-auto p-5">
@@ -363,13 +365,16 @@ function BulletinDetailView({ bulletin, onBack, onPreviewPdf, onEditBulletin }) 
             <tr>
               <th className="text-left px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Date</th>
               <th className="text-left px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Type de soin</th>
-              <th className="text-right px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Montant</th>
+              <th className="text-right px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Frais</th>
+              {showRembourse && (
+                <th className="text-right px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Remboursé</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {(bulletin.details || []).length === 0 ? (
               <tr>
-                <td colSpan={3} className="text-center py-6 text-gray-400 text-xs">Aucun détail de soin.</td>
+                <td colSpan={showRembourse ? 4 : 3} className="text-center py-6 text-gray-400 text-xs">Aucun détail de soin.</td>
               </tr>
             ) : (
               bulletin.details.map((d, i) => (
@@ -379,6 +384,15 @@ function BulletinDetailView({ bulletin, onBack, onPreviewPdf, onEditBulletin }) 
                     <span className="inline-flex px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">{d.type_soin || '-'}</span>
                   </td>
                   <td className="px-4 py-2.5 text-right text-gray-900 font-medium">{Number(d.montant || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
+                  {showRembourse && (
+                    <td className="px-4 py-2.5 text-right">
+                      {d.montant_rembourse !== null && d.montant_rembourse !== undefined ? (
+                        <span className="font-medium text-emerald-600">{Number(d.montant_rembourse).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -386,8 +400,11 @@ function BulletinDetailView({ bulletin, onBack, onPreviewPdf, onEditBulletin }) 
           {(bulletin.details || []).length > 0 && (
             <tfoot className="bg-gray-50 border-t border-gray-200">
               <tr>
-                <td colSpan={2} className="px-4 py-2.5 text-right text-xs font-semibold text-gray-700">Total</td>
+                <td colSpan={showRembourse ? 2 : 2} className="px-4 py-2.5 text-right text-xs font-semibold text-gray-700">Total</td>
                 <td className="px-4 py-2.5 text-right text-sm font-bold text-gray-900">{totalMontant.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
+                {showRembourse && (
+                  <td className="px-4 py-2.5 text-right text-sm font-bold text-emerald-600">{totalRembourse.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
+                )}
               </tr>
             </tfoot>
           )}
@@ -1013,16 +1030,18 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onVerifyP
                 Voir PDF réponse
               </button>
             )}
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(bordereau); }}
-              className="px-3 py-1.5 text-xs text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition flex items-center gap-1"
-              title="Modifier"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Modifier
-            </button>          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
+            {bordereau.statut !== 'Traité' && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onEdit(bordereau); }}
+                className="px-3 py-1.5 text-xs text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition flex items-center gap-1"
+                title="Modifier"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Modifier
+              </button>
+            )}          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
           </div>
         </div>
         {/* Vue Bulletins */}

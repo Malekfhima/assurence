@@ -28,15 +28,21 @@ class StipPdfParser
             throw new \RuntimeException('Le fichier PDF est introuvable sur le serveur.');
         }
 
-        // 1. Essayer pdftotext (rapide, fiable pour les PDF textuels)
-        $text = $this->extractTextWithPdftotext($pdfPath);
+        // 1. Extraction principale : pdftotext -layout (conserve la disposition en colonnes)
+        //    Utilisé pour le tableau récapitulatif des bulletins
+        $textLayout = $this->extractTextWithFlag($pdfPath, '-layout');
 
-        // 2. Fallback : smalot/pdfparser en PHP
-        if ($text === null) {
-            $text = $this->extractTextWithPhpParser($pdfPath);
+        // 2. Extraction secondaire : pdftotext -raw (ordre de lecture)
+        //    Utilisé pour les sections "RELEVE INDIVIDUEL" où -layout déforme les colonnes
+        $textRaw = $this->extractTextWithFlag($pdfPath, '-raw');
+
+        // 3. Fallback commun : smalot/pdfparser en PHP
+        if ($textLayout === null) {
+            $textLayout = $this->extractTextWithPhpParser($pdfPath);
+            $textRaw = $textLayout; // fallback, pas de distinction layout/raw
         }
 
-        if ($text === null || trim($text) === '') {
+        if ($textLayout === null || trim($textLayout) === '') {
             $fileSize = filesize($pdfPath);
             throw new \RuntimeException(
                 "Impossible d'extraire le texte du PDF. " .
@@ -45,35 +51,26 @@ class StipPdfParser
             );
         }
 
-        return $this->parseBulletinsFromText($text);
+        // Si -raw a échoué, utiliser -layout comme fallback pour les détails aussi
+        if ($textRaw === null) {
+            $textRaw = $textLayout;
+        }
+
+        return $this->parseBulletinsFromText($textLayout, $textRaw);
     }
 
     /**
-     * Extrait le texte d'un PDF via pdftotext (poppler-utils).
+     * Extrait le texte d'un PDF via pdftotext (poppler-utils) avec un flag donné.
      *
-     * Ordre de priorité :
-     *   1. -layout : préserve la disposition spatiale, idéal pour les tableaux
-     *   2. -raw    : extrait dans l'ordre du flux, utile si -layout échoue
-     *   3. sans flag : fallback générique
+     * @param  string  $pdfPath
+     * @param  string  $flag  '-layout', '-raw', ou ''
+     * @return string|null
      */
-    private function extractTextWithPdftotext(string $pdfPath): ?string
+    private function extractTextWithFlag(string $pdfPath, string $flag): ?string
     {
         $escapedPath = escapeshellarg($pdfPath);
         $nullDevice = $this->isWindows() ? 'nul' : '/dev/null';
-
-        // -layout préserve la mise en page (colonnes), idéal pour les tableaux STIP
-        $output = shell_exec("pdftotext -layout {$escapedPath} - 2>{$nullDevice}");
-
-        if ($output === null || $output === false || trim($output) === '') {
-            // Fallback : -raw extrait dans l'ordre du flux
-            $output = shell_exec("pdftotext -raw {$escapedPath} - 2>{$nullDevice}");
-        }
-
-        if ($output === null || $output === false || trim($output) === '') {
-            // Fallback : sans flag
-            $output = shell_exec("pdftotext {$escapedPath} - 2>{$nullDevice}");
-        }
-
+        $output = shell_exec("pdftotext {$flag} {$escapedPath} - 2>{$nullDevice}");
         return ($output !== null && $output !== false && trim($output) !== '') ? $output : null;
     }
 
@@ -116,14 +113,16 @@ class StipPdfParser
      *   ...
      *   Total bordereau : 12623.945
      *
-     * Retourne un tableau avec :
-     *   - 'bulletins'       : la liste des bulletins parsés
-     *   - 'total_bordereau' : le montant "Total bordereau" extrait du PDF (ou null si non trouvé)
-     *
-     * @return array{bulletins: array, total_bordereau: ?float}
+     * @param  string  $textLayout  Texte extrait en mode -layout (pour le tableau récapitulatif)
+     * @param  string  $textRaw     Texte extrait en mode -raw (pour les sections RELEVE INDIVIDUEL)
+     * @return array{bulletins: array, total_bordereau: ?float, details_par_bulletin: array}
      */
-    private function parseBulletinsFromText(string $text): array
+    private function parseBulletinsFromText(string $textLayout, string $textRaw): array
     {
+        // Nettoyer les caractères d'encodage (é/è -> e) pour que les regex fonctionnent
+        $text = str_replace("\u{FFFD}", 'e', $textLayout);
+        $text = preg_replace('/[\x80-\x9F\x7F]/', '', $text);
+
         $lines = explode("\n", $text);
         $bulletins = [];
         $totalBordereau = null;
@@ -216,11 +215,227 @@ class StipPdfParser
             throw new \RuntimeException($message);
         }
 
+        // Extraire les détails par bulletin depuis les sections "RELEVE INDIVIDUEL DE REMBOURSEMENT"
+        // Utiliser le texte -raw (ordre de lecture) pour un mapping rubrique->montant fiable
+        $textRawCleaned = str_replace("\u{FFFD}", 'e', $textRaw);
+        $textRawCleaned = preg_replace('/[\x80-\x9F\x7F]/', '', $textRawCleaned);
+        $detailsParBulletin = $this->parseDetailsFromText($textRawCleaned);
+
         return [
-            'bulletins'       => $bulletins,
-            'total_bordereau' => $totalBordereau,
+            'bulletins'            => $bulletins,
+            'total_bordereau'      => $totalBordereau,
+            'details_par_bulletin' => $detailsParBulletin,
         ];
     }
+
+    /**
+     * Parse les sections "RELEVE INDIVIDUEL DE REMBOURSEMENT" du texte PDF
+     * pour extraire le détail par soin de chaque bulletin validé.
+     *
+     * Format attendu (pdftotext -layout) :
+     *
+     *   Adhérent       695        LAAJILI ABDELHAMID                             Bulletin N°          I145278
+     *   Rubrique     Libellé                              Observations                        Frais        Rembours.
+     *   C2     1     CONSULTATION SPECIALISTE                                                    70,000            40,000
+     *   OPM    0     OPTIQUE MONTURE                      PLAFOND RUBRIQUE ANNUEL ATTEINT       350,000         150,000
+     *   PH     0     PHARMACIE                                                                    2,298             2,068
+     *                                                                 Totaux :          622,298             292,068
+     *         NET A REGLER       292,068
+     *
+     * @param  string  $text  Texte brut extrait du PDF
+     * @return array  Indexé par numero_bulletin, chaque élément contient 'lignes', 'total_frais', 'total_rembourse'
+     */
+    /**
+     * Parse les sections "RELEVE INDIVIDUEL DE REMBOURSEMENT" à partir du texte extrait
+     * en mode -raw (pdftotext -raw).
+     *
+     * Dans le mode -raw, chaque rubrique est sur DEUX lignes consécutives :
+     *   Ligne 1 : CODE [...texte...] MONTANT_REMBOURS   (ex: "C2 40,000" ou "OPM PLAFOND... 150,000")
+     *   Ligne 2 : N LIBELLE MONTANT_FRAIS               (ex: "1 CONSULTATION SPECIALISTE 70,000")
+     *
+     * @param  string  $text  Texte brut extrait en mode -raw
+     * @return array           Indexé par numero_bulletin
+     */
+    private function parseDetailsFromText(string $text): array
+    {
+        $detailsParBulletin = [];
+
+        // Détecter chaque section "RELEVE INDIVIDUEL DE REMBOURSEMENT"
+        // Dans le mode -raw, le titre est sur une seule ligne
+        $sections = preg_split('/^RELEVE\s+INDIVIDUEL\s+DE\s+REMBOURSEMENT\s*$/m', $text);
+        if (count($sections) <= 1) {
+            // Fallback: le titre peut être sans $ de fin de ligne
+            $sections = preg_split('/RELEVE\s+INDIVIDUEL(?:\s+DE\s+REMBOURSEMENT)?/i', $text);
+        }
+
+        // Ignorer le texte avant la première section
+        array_shift($sections);
+
+        // Rubriques à ignorer (faux positifs)
+        $ignoreCodes = ['RUBRIQUE', 'LIBELLE', 'OBSERVATIONS', 'FRAIS', 'REMBOURS',
+                        'TOTAUX', 'NET', 'PATIENT', 'MATRICULE', 'BULLETIN',
+                        'BORDEREAU', 'GROUPE', 'CONTRAT', 'STIP', 'ADHERENT',
+                        'TOTAL', 'DATE', 'RELEVE', 'INDIVIDUEL', 'REMBOURSEMENT'];
+
+        foreach ($sections as $section) {
+            $lines = explode("\n", $section);
+
+            // Chercher le numéro de bulletin (première ligne après le titre qui est un code bulletin)
+            $numeroBulletin = null;
+            foreach ($lines as $line) {
+                $trimmed = trim($line);
+                if ($trimmed === '') continue;
+                // Format raw: le bulletin est souvent sur la ligne juste après RELEVE
+                if (preg_match('/\b([A-Z]\d{6})\b/', $trimmed, $m)) {
+                    $numeroBulletin = $m[1];
+                    break;
+                }
+            }
+            if ($numeroBulletin === null) continue;
+
+            // Parser les lignes de détail en mode raw (deux lignes par rubrique)
+            $lignes = [];
+            $totalFrais = null;
+            $totalRembourse = null;
+            $enAttenteRubrique = false; // true après avoir vu une ligne code+rembourse
+            $currentRembourse = null;
+            $currentRubrique = null;
+
+            foreach ($lines as $line) {
+                $trimmed = trim($line);
+                if ($trimmed === '') {
+                    $enAttenteRubrique = false;
+                    continue;
+                }
+
+                // Ignorer les lignes d'en-tête et métadonnées
+                if (preg_match('/^(Bordereau|Bulletin|Contrat|Adherent|Matricule|Patient|GROUPE|S T I P|Date de soins?|Date de remboursement)/i', $trimmed)) {
+                    $enAttenteRubrique = false;
+                    continue;
+                }
+
+                // Détecter "Totaux"
+                if (preg_match('/^Totaux?\s*:/i', $trimmed)) {
+                    if (preg_match_all('/(\d+[\.,]\d{3}(?:[\.,]\d{3})*|[\d]+[\.,]\d+)/', $trimmed, $m)) {
+                        $all = array_map(fn($n) => (float) str_replace([',', ' '], ['.', ''], $n), $m[0]);
+                        $c = count($all);
+                        if ($c >= 2) { $totalFrais = $all[$c-2]; $totalRembourse = $all[$c-1]; }
+                    }
+                    $enAttenteRubrique = false;
+                    continue;
+                }
+
+                // Détecter "NET A REGLER" + nombre (total rembourse)
+                if (preg_match('/^NET\s+A\s+REGLER\s+([\d.,]+)/i', $trimmed, $mNet)) {
+                    if ($totalRembourse === null) {
+                        $totalRembourse = (float) str_replace([',', ' '], ['.', ''], $mNet[1]);
+                    }
+                    $enAttenteRubrique = false;
+                    continue;
+                }
+
+                // Détecter une ligne avec juste des nombres (totaux en ligne séparée)
+                if (preg_match('/^[\d.,\s]+$/', $trimmed)) {
+                    $enAttenteRubrique = false;
+                    continue;
+                }
+
+                // --- DÉTECTION : ligne avec code rubrique ---
+                // Format: "C2 40,000" ou "OPM PLAFOND... 150,000" ou "PH 2,068"
+                // Le code rubrique est en début de ligne, suivi de texte puis du REMBOURSE (dernier nombre)
+                if (preg_match('/^\s*([A-Z][A-Z.0-9]{0,5})\b/', $trimmed, $rm)) {
+                    $code = strtoupper(trim($rm[1]));
+                    if (!in_array($code, $ignoreCodes)) {
+                        // Vérifier que la ligne contient un nombre (le rembourse)
+                        if (preg_match_all('/(\d+[\.,]\d{3}(?:[\.,]\d{3})*|[\d]+[\.,]\d+)/', $trimmed, $mNums)) {
+                            $nums = array_map(fn($n) => (float) str_replace([',', ' '], ['.', ''], $n), $mNums[0]);
+                            $currentRubrique = $code;
+                            $currentRembourse = end($nums); // dernier nombre = rembourse
+                            $enAttenteRubrique = true;
+                            continue; // Attendre la ligne suivante pour le frais
+                        }
+                    }
+                }
+
+                // --- LIGNE DE FRAIS (après une ligne rubrique) ---
+                // Format: "1 CONSULTATION SPECIALISTE 70,000" ou "0 PHARMACIE 2,298"
+                // Le dernier nombre est le FRAIS
+                if ($enAttenteRubrique && $currentRubrique !== null) {
+                    if (preg_match_all('/(\d+[\.,]\d{3}(?:[\.,]\d{3})*|[\d]+[\.,]\d+)/', $trimmed, $mNums)) {
+                        $nums = array_map(fn($n) => (float) str_replace([',', ' '], ['.', ''], $n), $mNums[0]);
+                        $frais = end($nums); // dernier nombre = frais
+
+                        $lignes[] = [
+                            'rubrique'  => $currentRubrique,
+                            'frais'     => $frais,
+                            'rembourse' => $currentRembourse,
+                        ];
+                    }
+                }
+
+                $enAttenteRubrique = false;
+            }
+
+            if (!empty($lignes)) {
+                $detailsParBulletin[$numeroBulletin] = [
+                    'lignes'           => $lignes,
+                    'total_frais'      => $totalFrais,
+                    'total_rembourse'  => $totalRembourse,
+                ];
+            }
+        }
+
+        return $detailsParBulletin;
+    }
+
+    /**
+     * Parse une ligne de détail de soin extraite d'une section "RELEVE INDIVIDUEL".
+     *
+     * Format attendu: CODE  N  LIBELLE  [OBSERVATIONS]  FRAIS  REMBOURS
+     * Exemple: "C2     1     CONSULTATION SPECIALISTE   70,000            40,000"
+     *
+     * @param  string  $line
+     * @return array|null  ['rubrique' => string, 'frais' => float, 'rembourse' => float] ou null
+     */
+    private function parseDetailLine(string $line): ?array
+    {
+        // Extraire les nombres décimaux à la fin de la ligne (Frais et Rembours.)
+        // Les nombres peuvent être au format "70,000" ou "70.000"
+        if (!preg_match_all('/(\d+[\.,]\d{3}(?:[\.,]\d{3})*|[\d]+[\.,]\d+)/', $line, $matches)) {
+            return null;
+        }
+
+        $numbers = $matches[0];
+        if (count($numbers) < 2) {
+            return null;
+        }
+
+        // Les deux derniers nombres sont Frais puis Rembours.
+        $frais = (float) str_replace([',', ' '], ['.', ''], $numbers[count($numbers) - 2]);
+        $rembourse = (float) str_replace([',', ' '], ['.', ''], $numbers[count($numbers) - 1]);
+
+        // Extraire le code rubrique (premier mot avant les nombres)
+        // Le code est généralement 1-6 caractères majuscules, points autorisés (ex: S.DENT)
+        // On prend le premier groupe de lettres/chiffres/points au début de la ligne
+        if (!preg_match('/^\s*([A-Z][A-Z.0-9]{0,5})\b/', $line, $codeMatch)) {
+            return null;
+        }
+
+        $rubrique = trim($codeMatch[1]);
+
+        // Ignorer les lignes qui ne sont pas des codes rubrique valides
+        // (ex: lignes d'en-tête, lignes trop courtes, etc.)
+        if (strlen($rubrique) < 1 || in_array($rubrique, ['Rubrique', 'Libellé', 'Observations', 'Frais', 'Rembours'])) {
+            return null;
+        }
+
+        return [
+            'rubrique'  => $rubrique,
+            'frais'     => $frais,
+            'rembourse' => $rembourse,
+        ];
+    }
+
 
     /**
      * Cherche un numéro de bulletin STIP dans une ligne de texte.
@@ -241,13 +456,13 @@ class StipPdfParser
         //   Ex: I145278, N°I145278, N.I145278, 28/03/2026I145278
         //   Utilise \b après le numéro pour gérer la ponctuation (.,;)
         //   PAS de \b avant car la date peut être collée (2026I145278)
-        if (preg_match('/(?:N[°.\s]*)?([A-Z]\d{6})\b/', $line, $matches)) {
+        if (preg_match('/(?:N[°.e\s]*)?([A-Z]\d{6})\b/', $line, $matches)) {
             return $matches[1];
         }
 
         // Pattern 2 : lettre + espace + 6 chiffres (certains extracteurs ajoutent un espace)
         //   Ex: I 145278
-        if (preg_match('/(?:N[°.\s]*)?([A-Z])\s+(\d{6})\b/', $line, $matches)) {
+        if (preg_match('/(?:N[°.e\s]*)?([A-Z])\s+(\d{6})\b/', $line, $matches)) {
             return $matches[1] . $matches[2];
         }
 
