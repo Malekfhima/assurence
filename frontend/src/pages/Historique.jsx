@@ -118,6 +118,20 @@ function BulletinDetailView({ bulletin, onBack }) {
   const totalMontant = (bulletin.details || []).reduce((sum, d) => sum + Number(d.montant || 0), 0);
   const totalRembourse = (bulletin.details || []).reduce((sum, d) => sum + Number(d.montant_rembourse || 0), 0);
   const showRembourse = true;
+  const [pdfDetails, setPdfDetails] = useState(null);
+
+  // Charger les donnees extraites du PDF de verification STIP
+  useEffect(() => {
+    if (bulletin?.id_bulletin && bulletin?.id_bordereau) {
+      api.get(`/bulletins/${bulletin.id_bulletin}`)
+        .then(res => {
+          if (res.data.success && res.data.pdf_details && res.data.pdf_details.lignes && res.data.pdf_details.lignes.length > 0) {
+            setPdfDetails(res.data.pdf_details);
+          }
+        })
+        .catch(err => console.error('Erreur chargement details PDF:', err));
+    }
+  }, [bulletin?.id_bulletin]);
 
   return (
     <div>
@@ -235,6 +249,65 @@ function BulletinDetailView({ bulletin, onBack }) {
           )}
         </table>
       </div>
+
+      {/* Tableau des donnees extraites du PDF */}
+      {pdfDetails?.lignes && pdfDetails.lignes.length > 0 && (
+        <div className="mt-6">
+          <h5 className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-2">
+            Donnees extraites du PDF reponse STIP
+            {pdfDetails.statut_pdf && (
+              <span className="ml-2 inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium border bg-purple-50 text-purple-700 border-purple-200">
+                {pdfDetails.statut_pdf}
+              </span>
+            )}
+          </h5>
+          <div className="overflow-x-auto border border-gray-200 rounded-lg">
+            <table className="w-full text-sm">
+              <thead className="bg-purple-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Rubrique</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Frais (PDF)</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Rembourse (PDF)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {pdfDetails.lignes.map((l, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-4 py-2.5">
+                      <span className="inline-flex px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs font-medium">{l.rubrique || '-'}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-gray-900 font-medium">
+                      {Number(l.frais || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {pdfDetails.statut_pdf === 'Rejete' ? (
+                        <span className="text-gray-400 text-xs">-</span>
+                      ) : (
+                        <span className="font-medium text-emerald-600">
+                          {Number(l.rembourse || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              {pdfDetails.lignes.length > 0 && (
+                <tfoot className="bg-purple-50 border-t border-gray-200">
+                  <tr>
+                    <td className="px-4 py-2.5 text-right text-xs font-semibold text-gray-700">Total PDF</td>
+                    <td className="px-4 py-2.5 text-right text-sm font-bold text-gray-900">
+                      {Number(pdfDetails.total_frais || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-sm font-bold text-emerald-600">
+                      {Number(pdfDetails.total_rembourse || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -247,12 +320,59 @@ export default function Historique() {
   const [pdfPreview, setPdfPreview] = useState(null);
   const [search, setSearch] = useState('');
   const [etatFilter, setEtatFilter] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [bordereauForm, setBordereauForm] = useState({ numero_bordereau: '', date_envoi: '', statut: 'Envoyé', commentaire: '' });
+  const [bordereauLoading, setBordereauLoading] = useState(false);
+  const [createError, setCreateError] = useState('');
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === bulletins.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(bulletins.map(b => b.id_bulletin));
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleCreateBordereau = async (e) => {
+    e.preventDefault();
+    if (selectedIds.length === 0) {
+      setCreateError('Sélectionnez au moins un bulletin.');
+      return;
+    }
+    setBordereauLoading(true);
+    setCreateError('');
+    try {
+      await api.post('/bordereaux', {
+        ...bordereauForm,
+        id_bulletins: selectedIds,
+        source: 'réclamation',
+      });
+      setShowCreateModal(false);
+      setSelectedIds([]);
+      setBordereauForm({ numero_bordereau: '', date_envoi: '', statut: 'Envoyé', commentaire: '' });
+      // Rafraîchir la liste
+      fetchData();
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Erreur lors de la création du bordereau.';
+      setCreateError(msg);
+    } finally {
+      setBordereauLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const params = {
         per_page: 100,
+        bordereau_traite: 1,  // Only show bulletins from bordereaux with statut 'Traité'
       };
 
       // Build etat filter: if a specific state is selected, show only that;
@@ -269,6 +389,8 @@ export default function Historique() {
       if (res.data.success) {
         setBulletins(res.data.data);
         setMeta(res.data.meta);
+        // Clear selection when data changes
+        setSelectedIds([]);
       }
     } catch (err) {
       console.error('Erreur chargement réclamations:', err);
@@ -278,6 +400,10 @@ export default function Historique() {
   };
 
   useEffect(() => { fetchData(); }, [etatFilter, search]);
+
+  const selectedMontantTotal = bulletins
+    .filter(b => selectedIds.includes(b.id_bulletin))
+    .reduce((sum, b) => sum + Number(b.montant_depense || 0), 0);
 
   const handleEtatClick = (etat) => {
     // Toggle: if already selected, deselect (show all)
@@ -346,6 +472,18 @@ export default function Historique() {
               }`}>{stats.sous_controle}</span>
             </span>
           </button>
+          {/* Créer un bordereau button */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            disabled={selectedIds.length === 0}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-white bg-[#0F2942] hover:bg-[#1A3A5C] rounded-lg transition shadow-sm hover:shadow-md active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100"
+            title={selectedIds.length === 0 ? 'Sélectionnez au moins un bulletin' : `Créer un bordereau (${selectedIds.length} bulletin${selectedIds.length > 1 ? 's' : ''})`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Créer un bordereau
+          </button>
           {/* Separator */}
           <span className="text-gray-300 text-sm">|</span>
           {/* Search by matricule */}
@@ -402,6 +540,14 @@ export default function Historique() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="w-10 px-3 py-3">
+                  <input
+                    type="checkbox"
+                    checked={bulletins.length > 0 && selectedIds.length === bulletins.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">N° Bulletin</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Adhérent</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 text-xs uppercase">Matricule</th>
@@ -416,7 +562,7 @@ export default function Historique() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-12">
+                  <td colSpan={10} className="text-center py-12">
                     <svg className="animate-spin w-6 h-6 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -425,7 +571,7 @@ export default function Historique() {
                 </tr>
               ) : bulletins.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-12 text-gray-400">
+                  <td colSpan={10} className="text-center py-12 text-gray-400">
                     <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
@@ -436,9 +582,17 @@ export default function Historique() {
                 bulletins.map((b) => (
                   <tr
                     key={b.id_bulletin}
-                    className="hover:bg-gray-50 transition cursor-pointer"
+                    className={`hover:bg-gray-50 transition cursor-pointer ${selectedIds.includes(b.id_bulletin) ? 'bg-blue-50/40' : ''}`}
                     onClick={() => setSelectedBulletin(b)}
                   >
+                    <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(b.id_bulletin)}
+                        onChange={() => toggleSelect(b.id_bulletin)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-3 font-medium text-gray-900">{b.numero_bulletin}</td>
                     <td className="px-4 py-3 text-gray-700">
                       {b.adherent?.nom} {b.adherent?.prenom}
@@ -494,12 +648,140 @@ export default function Historique() {
         </div>
       </div>
 
+      {/* Selection action bar */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-center p-4 pointer-events-none">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-200 px-5 py-3 flex items-center gap-4 pointer-events-auto animate-slide-up">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span className="text-sm text-gray-700">
+                <span className="font-semibold">{selectedIds.length}</span> bulletin(s) sélectionné(s)
+              </span>
+            </div>
+            <span className="text-gray-300">|</span>
+            <span className="text-sm text-gray-500">
+              Total : <span className="font-semibold text-emerald-600">{selectedMontantTotal.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
+            </span>
+            <div className="flex items-center gap-2 ml-2">
+              <button
+                onClick={() => setSelectedIds([])}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create bordereau modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowCreateModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-[#0F2942]/10 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-[#0F2942]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Créer un bordereau</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{selectedIds.length} bulletin(s) sélectionné(s)</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
+            </div>
+
+            <form onSubmit={handleCreateBordereau} className="p-5 space-y-4">
+              {/* Selected bulletins summary */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 max-h-32 overflow-y-auto">
+                <p className="text-xs font-medium text-blue-800 mb-1.5">Bulletins sélectionnés :</p>
+                <div className="space-y-1">
+                  {bulletins
+                    .filter(b => selectedIds.includes(b.id_bulletin))
+                    .map(b => (
+                      <div key={b.id_bulletin} className="flex items-center justify-between text-xs text-blue-700">
+                        <span>N°{b.numero_bulletin} — {b.adherent?.nom} {b.adherent?.prenom}</span>
+                        <span className="font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Numéro bordereau <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={bordereauForm.numero_bordereau}
+                    onChange={(e) => setBordereauForm({...bordereauForm, numero_bordereau: e.target.value})}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="Ex: BR-2024-001"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Date envoi</label>
+                  <input
+                    type="date"
+                    value={bordereauForm.date_envoi}
+                    onChange={(e) => setBordereauForm({...bordereauForm, date_envoi: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Commentaire</label>
+                <textarea
+                  value={bordereauForm.commentaire}
+                  onChange={(e) => setBordereauForm({...bordereauForm, commentaire: e.target.value})}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="Optionnel"
+                />
+              </div>
+
+              {createError && (
+                <p className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg p-2">{createError}</p>
+              )}
+
+              <div className="pt-2 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowCreateModal(false)} disabled={bordereauLoading} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition disabled:opacity-50">Annuler</button>
+                <button type="submit" disabled={bordereauLoading || !bordereauForm.numero_bordereau.trim()} className="px-4 py-2 text-sm bg-[#0F2942] text-white rounded-lg hover:bg-[#1A3A5C] transition disabled:opacity-50 flex items-center gap-2">
+                  {bordereauLoading && (
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  )}
+                  Créer le bordereau
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {pdfPreview && (
         <PdfPreviewModal
           bulletin={pdfPreview}
           onClose={() => setPdfPreview(null)}
         />
       )}
+
+      {/* Animation for the bottom bar */}
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up {
+          animation: slideUp 0.25s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

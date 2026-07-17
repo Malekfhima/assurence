@@ -19,6 +19,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Dashboard ---
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+    Route::get('/dashboard/stats/monthly', [DashboardController::class, 'monthlyBreakdown']);
 
     // --- CRUD Adhérents ---
     Route::get('/adherents', [AdherentController::class, 'index']);
@@ -67,5 +68,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Re-parser le PDF réponse pour corriger les montant_rembourse des bulletins (backfill)
     Route::post('/bordereaux/{id}/reparer-montants', [BordereauController::class, 'reparerMontantRembourse']);
+
+    // Réinitialiser l'état d'un bordereau traité (remet en Envoyé + bulletins En attente)
+    Route::post('/bordereaux/{id}/reinitialiser', [BordereauController::class, 'reinitialiserEtat']);
 });
 

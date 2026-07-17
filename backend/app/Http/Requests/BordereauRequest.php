@@ -20,6 +20,7 @@ class BordereauRequest extends FormRequest
             'date_envoi' => 'nullable|date',
             'statut' => 'nullable|string|max:50',
             'commentaire' => 'nullable|string|max:255',
+            'source' => 'nullable|string|max:50',
         ];
 
         // En création, les bulletins sont obligatoires ; en modification ils sont optionnels

@@ -13,7 +13,7 @@ class Bordereau extends Model
 
     protected $fillable = [
         'numero_bordereau', 'montant_total', 'montant_rembourse', 'date_envoi', 'statut', 'commentaire',
-        'fichier_reponse', 'date_reponse',
+        'fichier_reponse', 'date_reponse', 'source',
     ];
 
     protected $casts = [

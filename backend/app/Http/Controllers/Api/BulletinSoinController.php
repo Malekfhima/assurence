@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BulletinSoinRequest;
+use App\Models\BordereauLog;
 use App\Models\BulletinSoin;
 use App\Models\BulletinSoinDetail;
 use Illuminate\Http\JsonResponse;
@@ -48,6 +49,14 @@ class BulletinSoinController extends Controller
         // Filtrer uniquement les bulletins disponibles (non liés à un bordereau)
         if ($request->boolean('available')) {
             $query->whereNull('id_bordereau');
+        }
+
+        // Filtrer les bulletins appartenant à des bordereaux traités (pour les réclamations)
+        if ($request->boolean('bordereau_traite')) {
+            $query->whereNotNull('id_bordereau')
+                  ->whereHas('bordereau', function ($q) {
+                      $q->where('statut', 'Traité');
+                  });
         }
 
         $bulletins = $query->orderBy('id_bulletin', 'desc')
@@ -119,9 +128,40 @@ class BulletinSoinController extends Controller
             ], 404);
         }
 
+        // Récupérer les données extraites du PDF de vérification (BordereauLog)
+        $pdfDetails = [];
+        if ($bulletin->id_bordereau && $bulletin->numero_bulletin) {
+            $log = BordereauLog::where('id_bordereau', $bulletin->id_bordereau)
+                ->where('action', 'vérification')
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            if ($log && $log->details) {
+                $details = is_string($log->details) ? json_decode($log->details, true) : $log->details;
+                $etapes = $details['étapes'] ?? $details['etapes'] ?? [];
+
+                foreach ($etapes as $etape) {
+                    $correspondances = $etape['détails']['correspondances'] ?? $etape['details']['correspondances'] ?? [];
+                    foreach ($correspondances as $corr) {
+                        if (($corr['numero_pdf'] ?? '') === $bulletin->numero_bulletin) {
+                            $pdfDetails = [
+                                'lignes'        => $corr['détails_soins']['lignes_pdf'] ?? $corr['details_soins']['lignes_pdf'] ?? [],
+                                'total_frais'   => $corr['détails_soins']['total_frais_pdf'] ?? $corr['details_soins']['total_frais_pdf'] ?? 0,
+                                'total_rembourse' => $corr['détails_soins']['total_rembourse_pdf'] ?? $corr['details_soins']['total_rembourse_pdf'] ?? 0,
+                                'statut_pdf'    => $corr['statut_pdf'] ?? '',
+                                'montant_rembourse_pdf' => $corr['montant_rembourse_pdf'] ?? null,
+                            ];
+                            break 2;
+                        }
+                    }
+                }
+            }
+        }
+
         return response()->json([
             'success' => true,
             'data' => $bulletin,
+            'pdf_details' => $pdfDetails,
         ]);
     }
 

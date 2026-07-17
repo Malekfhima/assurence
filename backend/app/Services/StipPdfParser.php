@@ -315,13 +315,39 @@ class StipPdfParser
                 }
 
                 // Détecter "Totaux"
+                $totauxMatched = false;
                 if (preg_match('/^Totaux?\s*:/i', $trimmed)) {
+                    $totauxMatched = true;
                     if (preg_match_all('/(\d+[\.,]\d{3}(?:[\.,]\d{3})*|[\d]+[\.,]\d+)/', $trimmed, $m)) {
                         $all = array_map(fn($n) => (float) str_replace([',', ' '], ['.', ''], $n), $m[0]);
                         $c = count($all);
-                        if ($c >= 2) { $totalFrais = $all[$c-2]; $totalRembourse = $all[$c-1]; }
+                        if ($c >= 2) { 
+                            // Mode -layout : les deux nombres sont sur la même ligne
+                            // Ordre inversé : REMBOURSE FRAIS
+                            $totalFrais = $all[$c-1]; 
+                            $totalRembourse = $all[$c-2]; 
+                        } elseif ($c === 1) {
+                            // Mode -raw : un seul nombre, c'est le REMBOURSE
+                            // Le FRAIS sera sur la ligne suivante
+                            $totalRembourse = $all[0];
+                        }
                     }
                     $enAttenteRubrique = false;
+                }
+
+                // Mode -raw : la ligne après "Totaux" contient le FRAIS total
+                // (c'est une ligne avec un seul nombre, sans texte)
+                if (!$totauxMatched && $totalRembourse !== null && $totalFrais === null && preg_match('/^[\d.,\s]+$/', $trimmed)) {
+                    $trimmedClean = trim($trimmed);
+                    if (preg_match('/^(\d+[\.,]\d{3}(?:[\.,]\d{3})*|[\d]+[\.,]\d+)$/', $trimmedClean, $mSingle)) {
+                        $totalFrais = (float) str_replace([',', ' '], ['.', ''], $mSingle[1]);
+                    }
+                    $enAttenteRubrique = false;
+                    continue;
+                }
+
+                // Si c'était la ligne "Totaux", on continue (ne pas traiter comme rubrique)
+                if ($totauxMatched) {
                     continue;
                 }
 
@@ -341,34 +367,55 @@ class StipPdfParser
                 }
 
                 // --- DÉTECTION : ligne avec code rubrique ---
-                // Format: "C2 40,000" ou "OPM PLAFOND... 150,000" ou "PH 2,068"
-                // Le code rubrique est en début de ligne, suivi de texte puis du REMBOURSE (dernier nombre)
+                // DEUX FORMATS possibles :
+                //
+                // Format A (pdftotext -raw) : DEUX lignes consécutives
+                //   Ligne 1 : "C2 40,000"  ou  "OPM PLAFOND... 150,000"  ou  "PH 2,068"
+                //   Ligne 2 : "1 CONSULTATION SPECIALISTE 70,000"  (contient le FRAIS)
+                //
+                // Format B (pdftotext -layout / smalot) : UNE SEULE ligne
+                //   "C2     1     CONSULTATION SPECIALISTE   70,000            40,000"
+                //   (code + libellé + FRAIS + REMBOURSE sur la même ligne)
+                //
                 if (preg_match('/^\s*([A-Z][A-Z.0-9]{0,5})\b/', $trimmed, $rm)) {
                     $code = strtoupper(trim($rm[1]));
                     if (!in_array($code, $ignoreCodes)) {
-                        // Vérifier que la ligne contient un nombre (le rembourse)
+                        // Vérifier que la ligne contient au moins un nombre
                         if (preg_match_all('/(\d+[\.,]\d{3}(?:[\.,]\d{3})*|[\d]+[\.,]\d+)/', $trimmed, $mNums)) {
                             $nums = array_map(fn($n) => (float) str_replace([',', ' '], ['.', ''], $n), $mNums[0]);
-                            $currentRubrique = $code;
-                            $currentRembourse = end($nums); // dernier nombre = rembourse
-                            $enAttenteRubrique = true;
-                            continue; // Attendre la ligne suivante pour le frais
+
+                            if (count($nums) >= 2) {
+                                // FORMAT B (1 ligne) : frais ET rembourse sur cette même ligne
+                                // Le dernier nombre = FRAIS, l'avant-dernier = REMBOURSE (inversé)
+                                $lignes[] = [
+                                    'rubrique'  => $code,
+                                    'frais'     => end($nums),
+                                    'rembourse' => $nums[count($nums) - 2],
+                                ];
+                            } else {
+                                // FORMAT A (2 lignes) : un seul nombre = frais
+                                // Attendre la ligne suivante pour le rembourse
+                                $currentRubrique = $code;
+                                $currentFrais = end($nums); // dernier nombre = frais (inversé)
+                                $enAttenteRubrique = true;
+                                continue;
+                            }
                         }
                     }
                 }
 
-                // --- LIGNE DE FRAIS (après une ligne rubrique) ---
+                // --- LIGNE DE REMBOURSE (après une ligne rubrique) ---
                 // Format: "1 CONSULTATION SPECIALISTE 70,000" ou "0 PHARMACIE 2,298"
-                // Le dernier nombre est le FRAIS
+                // Le dernier nombre est le REMBOURSE (inversé)
                 if ($enAttenteRubrique && $currentRubrique !== null) {
                     if (preg_match_all('/(\d+[\.,]\d{3}(?:[\.,]\d{3})*|[\d]+[\.,]\d+)/', $trimmed, $mNums)) {
                         $nums = array_map(fn($n) => (float) str_replace([',', ' '], ['.', ''], $n), $mNums[0]);
-                        $frais = end($nums); // dernier nombre = frais
+                        $rembourse = end($nums); // dernier nombre = rembourse (inversé)
 
                         $lignes[] = [
                             'rubrique'  => $currentRubrique,
-                            'frais'     => $frais,
-                            'rembourse' => $currentRembourse,
+                            'frais'     => $currentFrais,
+                            'rembourse' => $rembourse,
                         ];
                     }
                 }
@@ -410,9 +457,9 @@ class StipPdfParser
             return null;
         }
 
-        // Les deux derniers nombres sont Frais puis Rembours.
-        $frais = (float) str_replace([',', ' '], ['.', ''], $numbers[count($numbers) - 2]);
-        $rembourse = (float) str_replace([',', ' '], ['.', ''], $numbers[count($numbers) - 1]);
+        // Les deux derniers nombres sont Rembours puis Frais (inversé).
+        $rembourse = (float) str_replace([',', ' '], ['.', ''], $numbers[count($numbers) - 2]);
+        $frais = (float) str_replace([',', ' '], ['.', ''], $numbers[count($numbers) - 1]);
 
         // Extraire le code rubrique (premier mot avant les nombres)
         // Le code est généralement 1-6 caractères majuscules, points autorisés (ex: S.DENT)

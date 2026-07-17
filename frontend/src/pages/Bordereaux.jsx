@@ -275,6 +275,20 @@ function BulletinDetailView({ bulletin, onBack, onPreviewPdf, onEditBulletin }) 
   const totalMontant = (bulletin.details || []).reduce((sum, d) => sum + Number(d.montant || 0), 0);
   const totalRembourse = (bulletin.details || []).reduce((sum, d) => sum + Number(d.montant_rembourse || 0), 0);
   const showRembourse = true;
+  const [pdfDetails, setPdfDetails] = useState(null);
+
+  // Charger les donnees extraites du PDF de verification STIP
+  useEffect(() => {
+    if (bulletin?.id_bulletin && bulletin?.id_bordereau) {
+      api.get(`/bulletins/${bulletin.id_bulletin}`)
+        .then(res => {
+          if (res.data.success && res.data.pdf_details && res.data.pdf_details.lignes && res.data.pdf_details.lignes.length > 0) {
+            setPdfDetails(res.data.pdf_details);
+          }
+        })
+        .catch(err => console.error('Erreur chargement details PDF:', err));
+    }
+  }, [bulletin?.id_bulletin]);
 
   return (
     <div className="flex-1 overflow-y-auto p-5">
@@ -410,6 +424,65 @@ function BulletinDetailView({ bulletin, onBack, onPreviewPdf, onEditBulletin }) 
           )}
         </table>
       </div>
+
+      {/* Tableau des donnees extraites du PDF */}
+      {pdfDetails?.lignes && pdfDetails.lignes.length > 0 && (
+        <div className="mt-6">
+          <h5 className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-2">
+            Donnees extraites du PDF reponse STIP
+            {pdfDetails.statut_pdf && (
+              <span className="ml-2 inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium border bg-purple-50 text-purple-700 border-purple-200">
+                {pdfDetails.statut_pdf}
+              </span>
+            )}
+          </h5>
+          <div className="overflow-x-auto border border-gray-200 rounded-lg">
+            <table className="w-full text-sm">
+              <thead className="bg-purple-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Rubrique</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Frais (PDF)</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-600 text-xs uppercase">Rembourse (PDF)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {pdfDetails.lignes.map((l, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-4 py-2.5">
+                      <span className="inline-flex px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs font-medium">{l.rubrique || '-'}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-gray-900 font-medium">
+                      {Number(l.frais || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {pdfDetails.statut_pdf === 'Rejete' ? (
+                        <span className="text-gray-400 text-xs">-</span>
+                      ) : (
+                        <span className="font-medium text-emerald-600">
+                          {Number(l.rembourse || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              {pdfDetails.lignes.length > 0 && (
+                <tfoot className="bg-purple-50 border-t border-gray-200">
+                  <tr>
+                    <td className="px-4 py-2.5 text-right text-xs font-semibold text-gray-700">Total PDF</td>
+                    <td className="px-4 py-2.5 text-right text-sm font-bold text-gray-900">
+                      {Number(pdfDetails.total_frais || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-sm font-bold text-emerald-600">
+                      {Number(pdfDetails.total_rembourse || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -938,7 +1011,7 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onVerifyP
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
             </div>
 
-            <BulletinDetailView bulletin={selectedBulletin} onBack={() => setSelectedBulletin(null)} onPreviewPdf={setPdfPreview} onEditBulletin={startEditBulletin} />
+            <BulletinDetailView bulletin={selectedBulletin} onBack={() => setSelectedBulletin(null)} onPreviewPdf={setPdfPreview} onEditBulletin={bordereau.statut === 'Traité' ? null : startEditBulletin} />
 
             {/* Footer */}
             <div className="p-4 border-t border-gray-200 flex justify-end flex-shrink-0 bg-gray-50/50">
@@ -971,7 +1044,17 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onVerifyP
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Bordereau N°{bordereau.numero_bordereau}</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                        Bordereau N°{bordereau.numero_bordereau}
+                        {bordereau.source === 'réclamation' && (
+                          <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200 rounded text-[10px] font-semibold uppercase tracking-wider">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                            Réclamation
+                          </span>
+                        )}
+                      </h3>
               <div className="flex items-center gap-2 mt-1">
                 <span className={statutBordereauBadge(bordereau.statut)}>{bordereau.statut || 'En attente'}</span>
                 <span className="text-xs text-gray-400">·</span>
@@ -1050,26 +1133,38 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onVerifyP
             <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
               <div className="flex items-center gap-4 text-sm">
                 <span className="text-gray-500 text-xs uppercase tracking-wide font-medium">État des bulletins :</span>
-                <span className="flex items-center gap-1.5">
+                <button type="button"
+                  onClick={() => setFiltreEtat(filtreEtat === 'Validé' ? '' : 'Validé')}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all cursor-pointer ${filtreEtat === 'Validé' ? 'bg-emerald-50 ring-2 ring-emerald-400 shadow-sm' : 'hover:bg-gray-100'}`}
+                >
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  <span className="text-gray-700">Validés</span>
+                  <span className="text-gray-700 text-sm">Validés</span>
                   <span className="font-semibold text-emerald-700">{stats.valide}</span>
-                </span>
-                <span className="flex items-center gap-1.5">
+                </button>
+                <button type="button"
+                  onClick={() => setFiltreEtat(filtreEtat === 'Rejeté' ? '' : 'Rejeté')}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all cursor-pointer ${filtreEtat === 'Rejeté' ? 'bg-red-50 ring-2 ring-red-400 shadow-sm' : 'hover:bg-gray-100'}`}
+                >
                   <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                  <span className="text-gray-700">Rejetés</span>
+                  <span className="text-gray-700 text-sm">Rejetés</span>
                   <span className="font-semibold text-red-700">{stats.rejete}</span>
-                </span>
-                <span className="flex items-center gap-1.5">
+                </button>
+                <button type="button"
+                  onClick={() => setFiltreEtat(filtreEtat === 'Sous contrôle' ? '' : 'Sous contrôle')}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all cursor-pointer ${filtreEtat === 'Sous contrôle' ? 'bg-purple-50 ring-2 ring-purple-400 shadow-sm' : 'hover:bg-gray-100'}`}
+                >
                   <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                  <span className="text-gray-700">Sous contrôle</span>
+                  <span className="text-gray-700 text-sm">Sous contrôle</span>
                   <span className="font-semibold text-purple-700">{stats.sous_controle || 0}</span>
-                </span>
-                <span className="flex items-center gap-1.5">
+                </button>
+                <button type="button"
+                  onClick={() => setFiltreEtat(filtreEtat === 'En attente' ? '' : 'En attente')}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all cursor-pointer ${filtreEtat === 'En attente' ? 'bg-amber-50 ring-2 ring-amber-400 shadow-sm' : 'hover:bg-gray-100'}`}
+                >
                   <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                  <span className="text-gray-700">En attente</span>
+                  <span className="text-gray-700 text-sm">En attente</span>
                   <span className="font-semibold text-amber-700">{stats.en_attente}</span>
-                </span>
+                </button>
                 <span className="text-gray-300">|</span>
                 <span className="flex items-center gap-1.5">
                   <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1111,34 +1206,7 @@ function BordereauDetailModal({ bordereau, onClose, onEdit, onEnvoyer, onVerifyP
                 </button>
               )}
             </div>
-            {/* Filtre par statut */}
-            <div className="relative">
-              <select
-                value={filtreEtat}
-                onChange={(e) => setFiltreEtat(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white pr-8 appearance-none cursor-pointer"
-              >
-                <option value="">Tous les statuts</option>
-                <option value="Validé">Validé</option>
-                <option value="Rejeté">Rejeté</option>
-                <option value="Sous contrôle">Sous contrôle</option>
-                <option value="En attente">En attente</option>
-              </select>
-              <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-              {filtreEtat && (
-                <button
-                  onClick={() => setFiltreEtat('')}
-                  className="absolute right-7 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
-                  title="Réinitialiser le filtre"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
+  
           </div>
         </div>
 
@@ -1636,7 +1704,19 @@ export default function Bordereaux() {
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
                       />
                     </td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{b.numero_bordereau}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900">{b.numero_bordereau}</span>
+                        {b.source === 'réclamation' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-200 rounded text-[10px] font-semibold uppercase tracking-wider">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                            Réclamation
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {(b.bulletinSoins || b.bulletin_soins || []).slice(0, 3).map(bs => (

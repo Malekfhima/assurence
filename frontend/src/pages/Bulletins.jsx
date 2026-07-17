@@ -12,9 +12,9 @@ const TYPE_SOIN_OPTIONS = [
   'PH',
   'PRO',
   'B',
-  'KC',
+  'KCH',
   'MS','R','KE','AM','OPM','OPV','D1','D2','HH','HC','S.DENT',
-  'ERK',
+  'ERK','FSO',
   'Naissance',
 ];
 
@@ -397,6 +397,20 @@ function ViewBulletinModal({ bulletin, onClose, onEdit, onPreviewPdf }) {
   const totalMontant = (bulletin.details || []).reduce((sum, d) => sum + (parseFloat(d.montant) || 0), 0);
   const totalRembourse = (bulletin.details || []).reduce((sum, d) => sum + Number(d.montant_rembourse || 0), 0);
   const showRembourse = true;
+  const [pdfDetails, setPdfDetails] = useState(null);
+
+  // Charger les donnees extraites du PDF de verification STIP
+  useEffect(() => {
+    if (bulletin?.id_bulletin && bulletin?.id_bordereau) {
+      api.get(`/bulletins/${bulletin.id_bulletin}`)
+        .then(res => {
+          if (res.data.success && res.data.pdf_details && res.data.pdf_details.lignes && res.data.pdf_details.lignes.length > 0) {
+            setPdfDetails(res.data.pdf_details);
+          }
+        })
+        .catch(err => console.error('Erreur chargement details PDF:', err));
+    }
+  }, [bulletin?.id_bulletin]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
@@ -535,6 +549,63 @@ function ViewBulletinModal({ bulletin, onClose, onEdit, onPreviewPdf }) {
             <div>
               <span className="text-xs text-gray-500 uppercase tracking-wide">Description</span>
               <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">{bulletin.description}</p>
+            </div>
+          )}
+
+          {/* Tableau des donnees extraites du PDF */}
+          {pdfDetails?.lignes && pdfDetails.lignes.length > 0 && (
+            <div>
+              <span className="text-xs text-purple-600 uppercase tracking-wide font-semibold">Donnees extraites du PDF reponse STIP</span>
+              {pdfDetails.statut_pdf && (
+                <span className="ml-2 inline-flex px-2 py-0.5 rounded-full text-[10px] font-medium border bg-purple-50 text-purple-700 border-purple-200">
+                  {pdfDetails.statut_pdf}
+                </span>
+              )}
+              <div className="mt-2 overflow-x-auto border border-gray-200 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-purple-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left px-4 py-2 font-medium text-gray-600 text-xs uppercase">Rubrique</th>
+                      <th className="text-right px-4 py-2 font-medium text-gray-600 text-xs uppercase">Frais (PDF)</th>
+                      <th className="text-right px-4 py-2 font-medium text-gray-600 text-xs uppercase">Rembourse (PDF)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {pdfDetails.lignes.map((l, i) => (
+                      <tr key={i} className="hover:bg-gray-50">
+                        <td className="px-4 py-2">
+                          <span className="inline-flex px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs font-medium">{l.rubrique || '-'}</span>
+                        </td>
+                        <td className="px-4 py-2 text-right font-medium text-gray-900">
+                          {Number(l.frais || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          {pdfDetails.statut_pdf === 'Rejete' ? (
+                            <span className="text-gray-400 text-xs">-</span>
+                          ) : (
+                            <span className="font-medium text-emerald-600">
+                              {Number(l.rembourse || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {pdfDetails.lignes.length > 0 && (
+                    <tfoot className="bg-purple-50 border-t border-gray-200">
+                      <tr>
+                        <td className="px-4 py-2 text-right text-xs font-semibold text-gray-700">Total PDF</td>
+                        <td className="px-4 py-2 text-right text-sm font-bold text-gray-900">
+                          {Number(pdfDetails.total_frais || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm font-bold text-emerald-600">
+                          {Number(pdfDetails.total_rembourse || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
             </div>
           )}
 
