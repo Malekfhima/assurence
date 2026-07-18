@@ -83,12 +83,24 @@ function FormModal({ modal, form, errors, onSubmit, onChange, onClose }) {
               {errors.telephone && <p className="text-xs text-red-500 mt-1">{errors.telephone}</p>}
             </div>
             <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Identifiant (autre app)</label>
+              <input type="text" value={form.identifiant} onChange={handleChange('identifiant')} className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.identifiant ? 'border-red-400' : 'border-gray-300'}`} placeholder="Identifiant" />
+              {errors.identifiant && <p className="text-xs text-red-500 mt-1">{errors.identifiant}</p>}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Statut <span className="text-red-500">*</span></label>
               <select value={form.statut} onChange={handleChange('statut')} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.statut ? 'border-red-400' : 'border-gray-300'}`}>
                 <option value="Actif">Actif</option>
                 <option value="Inactif">Inactif</option>
               </select>
               {errors.statut && <p className="text-xs text-red-500 mt-1">{errors.statut}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Mot de passe (autre app)</label>
+              <input type="text" value={form.mot_de_passe} onChange={handleChange('mot_de_passe')} className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${errors.mot_de_passe ? 'border-red-400' : 'border-gray-300'}`} placeholder="Mot de passe" />
+              {errors.mot_de_passe && <p className="text-xs text-red-500 mt-1">{errors.mot_de_passe}</p>}
             </div>
           </div>
           <div className="pt-2 flex justify-end gap-3">
@@ -109,7 +121,7 @@ export default function Adherents() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // null | 'add' | 'edit' | 'view'
   const [selected, setSelected] = useState(null);
-  const [form, setForm] = useState({ matricule: '', nom: '', prenom: '', etat_civil: '', sexe: '', date_naissance: '', date_adhesion: '', adresse: '', cin: '', telephone: '', statut: 'Actif' });
+  const [form, setForm] = useState({ matricule: '', nom: '', prenom: '', etat_civil: '', sexe: '', date_naissance: '', date_adhesion: '', adresse: '', cin: '', telephone: '', identifiant: '', mot_de_passe: '', statut: 'Actif' });
   const [errors, setErrors] = useState({});
   const [notification, setNotification] = useState(null);
 
@@ -152,7 +164,7 @@ export default function Adherents() {
       setSelected(adherent);
     } else {
       setSelected(null);
-      setForm({ matricule: '', nom: '', prenom: '', etat_civil: '', sexe: '', date_naissance: '', date_adhesion: '', adresse: '', cin: '', telephone: '', statut: 'Actif' });
+      setForm({ matricule: '', nom: '', prenom: '', etat_civil: '', sexe: '', date_naissance: '', date_adhesion: '', adresse: '', cin: '', telephone: '', identifiant: '', mot_de_passe: '', statut: 'Actif' });
     }
     setErrors({});
     setModal(type);

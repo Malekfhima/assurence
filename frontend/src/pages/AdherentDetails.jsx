@@ -357,6 +357,8 @@ export default function AdherentDetails() {
           <InfoField label="Adresse" value={adherent.adresse} />
           <InfoField label="CIN" value={adherent.cin} />
           <InfoField label="Téléphone" value={adherent.telephone} />
+          <InfoField label="Identifiant (autre app)" value={adherent.identifiant} />
+          <InfoField label="Mot de passe (autre app)" value={adherent.mot_de_passe} />
           <div>
             <span className="text-xs text-gray-500 uppercase tracking-wide">Statut</span>
             <p className="text-sm font-medium text-gray-900 mt-0.5">
@@ -482,6 +484,8 @@ export default function AdherentDetails() {
             <FormInput label="Date naissance" name="date_naissance" type="date" value={editForm.date_naissance || ''} onChange={handleEditChange} error={editErrors.date_naissance} required />
             <FormInput label="Date adhésion" name="date_adhesion" type="date" value={editForm.date_adhesion || ''} onChange={handleEditChange} error={editErrors.date_adhesion} required />
             <FormInput label="Téléphone" name="telephone" type="tel" value={editForm.telephone || ''} onChange={handleEditChange} error={editErrors.telephone} required />
+            <FormInput label="Identifiant (autre app)" name="identifiant" value={editForm.identifiant || ''} onChange={handleEditChange} error={editErrors.identifiant} />
+            <FormInput label="Mot de passe (autre app)" name="mot_de_passe" value={editForm.mot_de_passe || ''} onChange={handleEditChange} error={editErrors.mot_de_passe} />
             <FormInput label="Statut" name="statut" value={editForm.statut || 'Actif'} onChange={handleEditChange} error={editErrors.statut} required options={['Actif', 'Inactif']} />
           </div>
           <FormInput label="Adresse" name="adresse" value={editForm.adresse || ''} onChange={handleEditChange} error={editErrors.adresse} required />

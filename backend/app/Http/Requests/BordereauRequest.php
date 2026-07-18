@@ -44,4 +44,14 @@ class BordereauRequest extends FormRequest
             'numero_bordereau.max' => 'Le numéro de bordereau ne doit pas dépasser 50 caractères.',
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        $nullableFields = ['date_envoi', 'commentaire', 'source', 'statut'];
+        foreach ($nullableFields as $field) {
+            if ($this->has($field) && $this->input($field) === '') {
+                $this->merge([$field => null]);
+            }
+        }
+    }
 }

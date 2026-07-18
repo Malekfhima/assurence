@@ -17,7 +17,6 @@ class Adherent extends Model
         'telephone', 'identifiant', 'mot_de_passe', 'statut',
     ];
 
-    protected $hidden = ['mot_de_passe'];
 
     public function sousAdherents(): HasMany
     {

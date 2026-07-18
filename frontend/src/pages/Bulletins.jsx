@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import api from '../services/api';
 import SearchableSelect from '../components/SearchableSelect';
+import ExcelImportModal from '../components/ExcelImportModal';
 
 const TYPE_SOIN_OPTIONS = [
   'C1',
@@ -13,7 +16,7 @@ const TYPE_SOIN_OPTIONS = [
   'PRO',
   'B',
   'KCH',
-  'MS','R','KE','AM','OPM','OPV','D1','D2','HH','HC','S.DENT',
+  'MS','R','KE','ECG','AM','OPM','OPV','D1','D2','HH','HC','S.DENT',
   'ERK','FSO',
   'Naissance',
 ];
@@ -322,6 +325,16 @@ function FormModal({ modal, form, details, adherents, matchedAdherent, sousAdher
 
 // Modal de création de bordereau
 function BordereauModal({ selectedBulletins, form, setForm, onSubmit, onClose, loading }) {
+  // Auto-fill date_envoi when status changes to Envoyé
+  const handleStatutChange = (newStatut) => {
+    const updates = { ...form, statut: newStatut };
+    if (newStatut === 'Envoyé' && !form.date_envoi) {
+      updates.date_envoi = new Date().toISOString().split('T')[0];
+    } else if (newStatut !== 'Envoyé') {
+      updates.date_envoi = '';
+    }
+    setForm(updates);
+  };
   const totalMontant = selectedBulletins.reduce((sum, b) => sum + Number(b.montant_depense || 0), 0);
 
   return (
@@ -365,7 +378,7 @@ function BordereauModal({ selectedBulletins, form, setForm, onSubmit, onClose, l
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Statut</label>
-            <select value={form.statut} onChange={(e) => setForm({...form, statut: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            <select value={form.statut} onChange={(e) => handleStatutChange(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
               <option value="En attente">En attente</option>
               <option value="Envoyé">Envoyé</option>
               <option value="Traité">Traité</option>
@@ -663,6 +676,7 @@ const etatBadge = (etat) => {
 };
 
 export default function Bulletins() {
+  const navigate = useNavigate();
   const [bulletins, setBulletins] = useState([]);
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [search, setSearch] = useState('');
@@ -686,8 +700,10 @@ export default function Bulletins() {
   const [selectedBulletinsData, setSelectedBulletinsData] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showBordereauModal, setShowBordereauModal] = useState(false);
+  const [showExcelImport, setShowExcelImport] = useState(false);
   const [bordereauForm, setBordereauForm] = useState({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
   const [bordereauLoading, setBordereauLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const showNotif = (msg, type = 'success') => {
     setNotification({ msg, type });
@@ -1086,20 +1102,21 @@ export default function Bulletins() {
 
     setBordereauLoading(true);
     try {
-      await api.post('/bordereaux', {
-        ...bordereauForm,
-        id_bulletins: selectedBulletinIds,
-      });
+      // Ne pas envoyer date_envoi vide (la DB ne l'accepte pas)
+      const bordereauPayload = { ...bordereauForm };
+      if (!bordereauPayload.date_envoi) {
+        delete bordereauPayload.date_envoi;
+      }
+      bordereauPayload.id_bulletins = selectedBulletinIds;
+      await api.post('/bordereaux', bordereauPayload);
       showNotif(`Bordereau créé avec succès (${selectedBulletinIds.length} bulletin(s) associé(s)).`);
       setShowBordereauModal(false);
       setSelectedBulletinIds([]);
       setSelectedBulletinsData([]);
       setSelectAll(false);
       setBordereauForm({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
-      // Revenir à la page 1 pour afficher les bulletins restants
-      setSearch('');
-      setEtatFilter('');
-      fetchBulletins(1, '', '');
+      // Rediriger vers la page Bordereaux pour voir le bordereau créé
+      navigate('/bordereaux');
     } catch (err) {
       showNotif(err.response?.data?.message || 'Erreur lors de la création du bordereau.', 'error');
     } finally {
@@ -1135,6 +1152,55 @@ export default function Bulletins() {
             {selectedBulletinIds.length > 0 && (
               <span className="ml-1 px-1.5 py-0.5 text-xs bg-white/20 rounded-full">{selectedBulletinIds.length}</span>
             )}
+          </button>
+          {selectedBulletinIds.length > 0 && (
+            <button
+              onClick={async () => {
+                const count = selectedBulletinIds.length;
+                if (!window.confirm(`Confirmer la suppression de ${count} bulletin${count > 1 ? 's' : ''} ?`)) return;
+                setDeleting(true);
+                try {
+                  // Supprimer tous les bulletins en parallèle
+                  await Promise.all(selectedBulletinIds.map(id => api.delete(`/bulletins/${id}`)));
+                  showNotif(`${count} bulletin${count > 1 ? 's' : ''} supprimé${count > 1 ? 's' : ''} avec succès.`);
+                  setSelectedBulletinIds([]);
+                  setSelectedBulletinsData([]);
+                  setSelectAll(false);
+                  setSearch('');
+                  setEtatFilter('');
+                  fetchBulletins(1, '', '');
+                } catch (err) {
+                  showNotif('Erreur lors de la suppression en masse.', 'error');
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+              disabled={deleting}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${deleting
+                ? 'bg-red-300 text-white cursor-not-allowed'
+                : 'bg-red-600 text-white hover:bg-red-700 shadow-sm'
+              }`}
+              title={`Supprimer ${selectedBulletinIds.length} bulletin${selectedBulletinIds.length > 1 ? 's' : ''}`}
+            >
+              {deleting ? (
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              )}
+              {deleting ? 'Suppression...' : `Supprimer (${selectedBulletinIds.length})`}
+            </button>
+          )}
+          <button
+            onClick={() => setShowExcelImport(true)}
+            className="px-4 py-2 border border-emerald-300 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-50 transition flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Importer Excel
           </button>
           <button onClick={() => openModal('add')} className="px-4 py-2 bg-[#0F2942] text-white rounded-lg text-sm font-medium hover:bg-[#1A3A5C] transition flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
@@ -1310,6 +1376,13 @@ export default function Bulletins() {
           onSubmit={handleCreateBordereau}
           onClose={() => setShowBordereauModal(false)}
           loading={bordereauLoading}
+        />
+      )}
+      {showExcelImport && (
+        <ExcelImportModal
+          onClose={() => setShowExcelImport(false)}
+          showNotif={showNotif}
+          fetchBulletins={fetchBulletins}
         />
       )}
 

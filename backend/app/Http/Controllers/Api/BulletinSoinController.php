@@ -281,6 +281,127 @@ class BulletinSoinController extends Controller
         ]);
     }
 
+    /**
+     * Import en masse de bulletins depuis un fichier Excel parsé côté frontend.
+     * Regoit un tableau JSON de bulletins (groupés par N° bulletin) avec leurs détails.
+     * Chaque bulletin peut avoir un tableau _details pour les lignes de soins multiples.
+     */
+    public function importExcel(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'bulletins' => 'required|array|min:1',
+            'bulletins.*.matricule' => 'required|string|max:50',
+            'bulletins.*.numero_bulletin' => 'required|string|max:50',
+            'bulletins.*.date' => 'nullable|date',
+            'bulletins.*.montant' => 'required|numeric|min:0.01',
+            'bulletins.*.type_soin' => 'required|string|max:100',
+            'bulletins.*._details' => 'nullable|array',
+            'bulletins.*._details.*.date' => 'nullable|date',
+            'bulletins.*._details.*.montant' => 'required|numeric|min:0.01',
+            'bulletins.*._details.*.type_soin' => 'required|string|max:100',
+        ]);
+
+        $results = [
+            'success' => [],
+            'errors' => [],
+            'total' => count($data['bulletins']),
+            'imported' => 0,
+            'failed' => 0,
+        ];
+
+        // Charger tous les adhérents en mémoire pour éviter des requêtes N+1
+        $adherents = \App\Models\Adherent::pluck('id_adherent', 'matricule')->toArray();
+
+        foreach ($data['bulletins'] as $index => $item) {
+            $matricule = trim($item['matricule']);
+
+            // Vérifier que le matricule existe
+            if (!isset($adherents[$matricule])) {
+                $results['errors'][] = [
+                    'row' => $index + 1,
+                    'numero_bulletin' => $item['numero_bulletin'],
+                    'message' => "Matricule '{$matricule}' introuvable.",
+                ];
+                $results['failed']++;
+                continue;
+            }
+
+            $idAdherent = $adherents[$matricule];
+
+            // Vérifier l'unicité du numéro de bulletin
+            $existing = BulletinSoin::where('numero_bulletin', $item['numero_bulletin'])->exists();
+            if ($existing) {
+                $results['errors'][] = [
+                    'row' => $index + 1,
+                    'numero_bulletin' => $item['numero_bulletin'],
+                    'message' => "Le numéro de bulletin '{$item['numero_bulletin']}' existe déjà.",
+                ];
+                $results['failed']++;
+                continue;
+            }
+
+            try {
+                \Illuminate\Support\Facades\DB::beginTransaction();
+
+                $dateSoin = $item['date'] ?? date('Y-m-d');
+
+                $bulletin = BulletinSoin::create([
+                    'id_adherent' => $idAdherent,
+                    'numero_bulletin' => $item['numero_bulletin'],
+                    'date_soin' => $dateSoin,
+                    'type_soin' => $item['type_soin'],
+                    'montant_depense' => $item['montant'],
+                    'etat' => 'En attente',
+                ]);
+
+                // Si _details est fourni, créer plusieurs détails
+                $detailsList = $item['_details'] ?? [];
+
+                if (!empty($detailsList)) {
+                    foreach ($detailsList as $detail) {
+                        BulletinSoinDetail::create([
+                            'id_bulletin' => $bulletin->id_bulletin,
+                            'date' => $detail['date'] ?? $dateSoin,
+                            'montant' => $detail['montant'],
+                            'type_soin' => $detail['type_soin'],
+                        ]);
+                    }
+                } else {
+                    // Fallback : créer un seul détail avec les infos du bulletin
+                    BulletinSoinDetail::create([
+                        'id_bulletin' => $bulletin->id_bulletin,
+                        'date' => $dateSoin,
+                        'montant' => $item['montant'],
+                        'type_soin' => $item['type_soin'],
+                    ]);
+                }
+
+                \Illuminate\Support\Facades\DB::commit();
+
+                $results['success'][] = [
+                    'row' => $index + 1,
+                    'numero_bulletin' => $item['numero_bulletin'],
+                    'id_bulletin' => $bulletin->id_bulletin,
+                ];
+                $results['imported']++;
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                $results['errors'][] = [
+                    'row' => $index + 1,
+                    'numero_bulletin' => $item['numero_bulletin'],
+                    'message' => $e->getMessage(),
+                ];
+                $results['failed']++;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Import terminé : {$results['imported']} bulletin(s) importé(s), {$results['failed']} échec(s).",
+            'data' => $results,
+        ]);
+    }
+
 }
 
 

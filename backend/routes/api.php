@@ -40,11 +40,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- CRUD Bulletins de soin ---
     Route::get('/bulletins', [BulletinSoinController::class, 'index']);
     Route::post('/bulletins', [BulletinSoinController::class, 'store']);
+
+    // Import de bulletins depuis Excel (DOIT être AVANT la route {id})
+    Route::post('/bulletins/import-excel', [BulletinSoinController::class, 'importExcel']);
+
     Route::get('/bulletins/{id}', [BulletinSoinController::class, 'show']);
     Route::match(['put', 'post'], '/bulletins/{id}', [BulletinSoinController::class, 'update']);
     Route::delete('/bulletins/{id}', [BulletinSoinController::class, 'destroy']);
     Route::get('/bulletins/{id}/pdf', [BulletinSoinController::class, 'downloadPdf']);
-
 
     // --- CRUD Bordereaux ---
     Route::get('/bordereaux', [BordereauController::class, 'index']);

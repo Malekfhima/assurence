@@ -26,6 +26,8 @@ class AdherentRequest extends FormRequest
             'adresse' => 'required|string|max:500',
             'cin' => 'nullable|numeric',
             'telephone' => 'required|string|max:30',
+            'identifiant' => ['nullable', 'string', 'max:100'],
+            'mot_de_passe' => ['nullable', 'string', 'max:255'],
             'statut' => 'required|string|max:100',
         ];
     }
@@ -44,6 +46,8 @@ class AdherentRequest extends FormRequest
             'adresse.required' => 'L\'adresse est obligatoire.',
             'cin.required' => 'Le CIN est obligatoire.',
             'cin.numeric' => 'Le CIN doit être une valeur numérique valide.',
+            'identifiant.max' => 'L\'identifiant ne doit pas dépasser 100 caractères.',
+            'mot_de_passe.max' => 'Le mot de passe ne doit pas dépasser 255 caractères.',
             'telephone.required' => 'Le téléphone est obligatoire.',
             'statut.required' => 'Le statut est obligatoire.',
         ];
