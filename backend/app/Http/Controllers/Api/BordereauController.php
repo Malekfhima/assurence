@@ -55,6 +55,19 @@ class BordereauController extends Controller
         $idBulletins = $data['id_bulletins'];
         unset($data['id_bulletins']);
 
+        // Vérifier qu'aucun des bulletins sélectionnés n'est déjà lié à un bordereau
+        $bulletinsDejaLies = BulletinSoin::whereIn('id_bulletin', $idBulletins)
+            ->whereNotNull('id_bordereau')
+            ->pluck('numero_bulletin')
+            ->toArray();
+
+        if (!empty($bulletinsDejaLies)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Certains bulletins sont déjà liés à un autre bordereau : N°' . implode(', N°', $bulletinsDejaLies),
+            ], 422);
+        }
+
         $bordereau = Bordereau::create($data);
 
         // Associer les bulletins sélectionnés au bordereau
@@ -125,31 +138,39 @@ class BordereauController extends Controller
         }
 
         $data = $request->validated();
-        $idBulletins = $data['id_bulletins'] ?? [];
-        unset($data['id_bulletins']);
 
-        $bordereau->update($data);
+        // Ne dissocier/réassocier les bulletins QUE si le champ id_bulletins
+        // a été explicitement fourni dans la requête (sinon, on ne touche pas aux bulletins)
+        $hasBulletins = $request->has('id_bulletins');
+        if ($hasBulletins) {
+            $idBulletins = $data['id_bulletins'] ?? [];
+            unset($data['id_bulletins']);
 
-        // Dissocier les anciens bulletins
-        BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
-                    ->update(['id_bordereau' => null]);
+            // Dissocier les anciens bulletins
+            BulletinSoin::where('id_bordereau', $bordereau->id_bordereau)
+                        ->update(['id_bordereau' => null]);
 
-        // Associer les nouveaux bulletins
-        // et les remettre en "En attente" car ils ne sont pas encore traités
-        if (!empty($idBulletins)) {
-            BulletinSoin::whereIn('id_bulletin', $idBulletins)
-                        ->update([
-                            'id_bordereau' => $bordereau->id_bordereau,
-                            'etat'         => 'En attente',
-                        ]);
+            // Associer les nouveaux bulletins
+            // et les remettre en "En attente" car ils ne sont pas encore traités
+            if (!empty($idBulletins)) {
+                BulletinSoin::whereIn('id_bulletin', $idBulletins)
+                            ->update([
+                                'id_bordereau' => $bordereau->id_bordereau,
+                                'etat'         => 'En attente',
+                            ]);
 
-            // Recalculer le montant total
-            $montantTotal = BulletinSoin::whereIn('id_bulletin', $idBulletins)->sum('montant_depense');
+                // Recalculer le montant total
+                $montantTotal = BulletinSoin::whereIn('id_bulletin', $idBulletins)->sum('montant_depense');
+            } else {
+                $montantTotal = 0;
+            }
+
+            $bordereau->update(['montant_total' => $montantTotal]);
         } else {
-            $montantTotal = 0;
+            unset($data['id_bulletins']);
         }
 
-        $bordereau->update(['montant_total' => $montantTotal]);
+        $bordereau->update($data);
 
         return response()->json([
             'success' => true,

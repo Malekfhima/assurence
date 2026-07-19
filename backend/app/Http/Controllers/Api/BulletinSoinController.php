@@ -292,6 +292,7 @@ class BulletinSoinController extends Controller
             'bulletins' => 'required|array|min:1',
             'bulletins.*.matricule' => 'required|string|max:50',
             'bulletins.*.numero_bulletin' => 'required|string|max:50',
+            'bulletins.*.beneficiaire' => 'nullable|string|max:255',
             'bulletins.*.date' => 'nullable|date',
             'bulletins.*.montant' => 'required|numeric|min:0.01',
             'bulletins.*.type_soin' => 'required|string|max:100',
@@ -345,14 +346,127 @@ class BulletinSoinController extends Controller
 
                 $dateSoin = $item['date'] ?? date('Y-m-d');
 
-                $bulletin = BulletinSoin::create([
-                    'id_adherent' => $idAdherent,
-                    'numero_bulletin' => $item['numero_bulletin'],
-                    'date_soin' => $dateSoin,
-                    'type_soin' => $item['type_soin'],
-                    'montant_depense' => $item['montant'],
-                    'etat' => 'En attente',
-                ]);
+                // Déterminer le sous-adhérent à partir du bénéficiaire (colonne PRESTATAIRE)
+                // La colonne peut contenir : "LUI-MEME", "AFEF/CONJOINT", "MOHAMED/FILS", ou un nom simple
+                $idSousAdherent = null;
+                $beneficiaire = isset($item['beneficiaire']) ? trim($item['beneficiaire']) : '';
+                $descriptionBeneficiaire = '';
+
+                if (!empty($beneficiaire)) {
+                    // ════════════════════════════════════════════════════════════
+                    // ÉTAPE 1 : Vérifier si c'est "lui-même" (pas de sous-adhérent)
+                    // ════════════════════════════════════════════════════════════
+                    $beneficiaireClean = preg_replace('/[\s\-\/\_\.]/u', '', mb_strtoupper($beneficiaire));
+                    $luiMemePatterns = ['LUIMEME', 'LUIMME', 'LUI.MEME', 'LUI', 'MOI', 'PERSONNE'];
+                    $isLuiMeme = false;
+                    foreach ($luiMemePatterns as $pattern) {
+                        if ($beneficiaireClean === $pattern || strpos($beneficiaireClean, $pattern) !== false) {
+                            $isLuiMeme = true;
+                            break;
+                        }
+                    }
+
+                    if (!$isLuiMeme) {
+                        // ════════════════════════════════════════════════════════
+                        // ÉTAPE 2 : Parse le format "NOM/RELATION"
+                        // ════════════════════════════════════════════════════════
+                        $parts = explode('/', $beneficiaire, 2);
+                        $namePart = trim($parts[0]);
+                        $relationPart = isset($parts[1]) ? trim($parts[1]) : '';
+
+                        // Charger les sous-adhérents de cet adhérent
+                        $sousAdherents = \App\Models\SousAdherent::where('id_adherent', $idAdherent)->get();
+                        $found = false;
+
+                        // ─── Sous-étape 2a : Matching par lien de parenté ───
+                        if (!empty($relationPart)) {
+                            $relationUpper = mb_strtoupper($relationPart);
+                            
+                            // Mapper les mots-clés vers lien_parente
+                            $relationMap = [
+                                'CONJOINT' => ['Conjoint'],
+                                'CONJOINTE' => ['Conjoint'],
+                                'EPOUX' => ['Conjoint'],
+                                'EPOUSE' => ['Conjoint'],
+                                'FILS' => ['Enfant'],
+                                'FILLE' => ['Enfant'],
+                                'ENFANT' => ['Enfant'],
+                                'ENFANTS' => ['Enfant'],
+                                'PERE' => ['Conjoint'],
+                                'MERE' => ['Conjoint'],
+                            ];
+
+                            $mappedRelations = $relationMap[$relationUpper] ?? [];
+                            if (!empty($mappedRelations)) {
+                                foreach ($mappedRelations as $lien) {
+                                    $candidates = $sousAdherents->where('lien_parente', $lien);
+                                    if ($candidates->count() === 1) {
+                                        // Un seul sous-adhérent avec ce lien → match direct
+                                        $idSousAdherent = $candidates->first()->id_sous_adherent;
+                                        $found = true;
+                                        break;
+                                    } elseif ($candidates->count() > 1 && !empty($namePart)) {
+                                        // Plusieurs avec le même lien → préciser avec le prénom/nom
+                                        $nameUpper = mb_strtoupper(preg_replace('/[\s]+/', ' ', $namePart));
+                                        foreach ($candidates as $sa) {
+                                            $saNom = mb_strtoupper(trim(($sa->prenom ?? '') . ' ' . ($sa->nom ?? '')));
+                                            $saNom2 = mb_strtoupper(trim(($sa->nom ?? '') . ' ' . ($sa->prenom ?? '')));
+                                            if ($nameUpper === $saNom || $nameUpper === $saNom2 ||
+                                                strpos($nameUpper, $saNom) !== false || strpos($nameUpper, $saNom2) !== false) {
+                                                $idSousAdherent = $sa->id_sous_adherent;
+                                                $found = true;
+                                                break 2;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // ─── Sous-étape 2b : Fallback par nom seulement ───
+                            if (!$found && !empty($namePart)) {
+                                $nameUpper = mb_strtoupper(preg_replace('/[\s]+/', ' ', $namePart));
+                                foreach ($sousAdherents as $sa) {
+                                    $saNom = mb_strtoupper(trim(($sa->prenom ?? '') . ' ' . ($sa->nom ?? '')));
+                                    $saNom2 = mb_strtoupper(trim(($sa->nom ?? '') . ' ' . ($sa->prenom ?? '')));
+                                    if ($nameUpper === $saNom || $nameUpper === $saNom2 ||
+                                        strpos($nameUpper, $saNom) !== false || strpos($nameUpper, $saNom2) !== false) {
+                                        $idSousAdherent = $sa->id_sous_adherent;
+                                        $found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        } else {
+                            // ─── Pas de relation → matching par nom uniquement ───
+                            $beneficiaireUpper = mb_strtoupper(trim(preg_replace('/\s+/', ' ', $beneficiaire)));
+                            foreach ($sousAdherents as $sa) {
+                                $saNom = mb_strtoupper(trim(($sa->prenom ?? '') . ' ' . ($sa->nom ?? '')));
+                                $saNom2 = mb_strtoupper(trim(($sa->nom ?? '') . ' ' . ($sa->prenom ?? '')));
+                                if (strpos($beneficiaireUpper, $saNom) !== false || strpos($beneficiaireUpper, $saNom2) !== false) {
+                                    $idSousAdherent = $sa->id_sous_adherent;
+                                    break;
+                                }
+                            }
+                        }
+                }
+                
+                // Toujours sauvegarder le texte brut du bénéficiaire (même si "LUI-MEME")
+                $descriptionBeneficiaire = $beneficiaire;
+            }
+
+            // Construire la description (conserver le bénéficiaire original)
+            $description = $descriptionBeneficiaire;
+
+            $bulletin = BulletinSoin::create([
+                'id_adherent' => $idAdherent,
+                'id_sous_adherent' => $idSousAdherent,
+                'numero_bulletin' => $item['numero_bulletin'],
+                'date_soin' => $dateSoin,
+                'type_soin' => $item['type_soin'],
+                'montant_depense' => $item['montant'],
+                'description' => $description,
+                'etat' => 'En attente',
+            ]);
 
                 // Si _details est fourni, créer plusieurs détails
                 $detailsList = $item['_details'] ?? [];

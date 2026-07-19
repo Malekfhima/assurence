@@ -351,6 +351,7 @@ export default function ExcelImportModal({ onClose, showNotif, fetchBulletins })
     const bulletins = groupedBulletins.map(b => ({
       matricule: b.matricule,
       numero_bulletin: b.numero_bulletin,
+      beneficiaire: b.beneficiaire,
       date: b.date_soin,
       montant: b.montant_total,
       type_soin: b.details[0]?.type_soin || '',

@@ -354,7 +354,7 @@ function BulletinDetailView({ bulletin, onBack, onPreviewPdf, onEditBulletin }) 
           <div>
             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Bénéficiaire</p>
             <p className="text-gray-800 mt-0.5">
-              {bulletin.sous_adherent ? `${bulletin.sous_adherent.prenom} ${bulletin.sous_adherent.nom}` : "L'adhérent"}
+              {bulletin.sous_adherent ? `${bulletin.sous_adherent.prenom} ${bulletin.sous_adherent.nom}` : (bulletin.description || "L'adhérent")}
             </p>
           </div>
           <div>
@@ -1344,13 +1344,13 @@ export default function Bordereaux() {
   const [verifyPdfLoading, setVerifyPdfLoading] = useState(false);
 
   // Filter state
-  const [filterMois, setFilterMois] = useState('');
+  const [filterPeriode, setFilterPeriode] = useState('');
+  const [searchNumero, setSearchNumero] = useState('');
+  const [filterStatut, setFilterStatut] = useState('');
 
   // Selection state for batch edit
   const [selectedBordereauIds, setSelectedBordereauIds] = useState([]);
-  const [batchEditMode, setBatchEditMode] = useState(false);
-  const [batchEditForm, setBatchEditForm] = useState({ statut: '' });
-  const [batchEditLoading, setBatchEditLoading] = useState(false);
+  const [massDeleting, setMassDeleting] = useState(false);
 
   // Edit modal state
   const [editTarget, setEditTarget] = useState(null);
@@ -1374,29 +1374,30 @@ export default function Bordereaux() {
     setLoading(true);
     try {
       const params = { per_page: 100 };
-      if (filterMois) params.mois = filterMois;
+      if (filterPeriode) {
+        const [annee, mois] = filterPeriode.split('-');
+        if (annee) params.annee = annee;
+        if (mois) params.mois = parseInt(mois, 10);
+      }
 
-      // Fonction pour déterminer si un bordereau doit rester dans la partie Bordereaux
-      // ou passer dans l'Historique.
-      // Règle unique : si la date d'envoi date de plus d'un an → Historique
-      const estRecent = (b) => {
-        if (b.date_envoi) {
-          const dateEnvoi = new Date(b.date_envoi);
-          const ilYaUnAn = new Date();
-          ilYaUnAn.setFullYear(ilYaUnAn.getFullYear() - 1);
-          if (dateEnvoi < ilYaUnAn) return false;
-        }
-        return true;
-      };
-
-      const [bordereauxRes, bulletinsRes] = await Promise.all([
+      const [bordereauxRes, bulletinsRes] = await Promise.allSettled([
         api.get('/bordereaux', { params }),
         api.get('/bulletins', { params: { per_page: 9999 } }),
       ]);
-      if (bordereauxRes.data.success) setBordereaux(bordereauxRes.data.data.filter(estRecent));
-      if (bulletinsRes.data.success) {
-        // Only keep bulletins not yet linked to a bordereau
-        setBulletinsDisponibles(bulletinsRes.data.data.filter(b => !b.id_bordereau));
+
+      // Charger TOUS les bordereaux (le filtre se fait côté client)
+      if (bordereauxRes.status === 'fulfilled' && bordereauxRes.value.data.success) {
+        const donnees = bordereauxRes.value.data.data;
+        setBordereaux(donnees);
+      } else if (bordereauxRes.status === 'rejected') {
+        console.error('Erreur chargement bordereaux:', bordereauxRes.reason);
+      }
+
+      // Charger les bulletins disponibles (ne pas bloquer l'affichage des bordereaux)
+      if (bulletinsRes.status === 'fulfilled' && bulletinsRes.value.data.success) {
+        setBulletinsDisponibles(bulletinsRes.value.data.data.filter(b => !b.id_bordereau));
+      } else if (bulletinsRes.status === 'rejected') {
+        console.error('Erreur chargement bulletins disponibles:', bulletinsRes.reason);
       }
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Erreur lors du chargement des données.';
@@ -1410,7 +1411,7 @@ export default function Bordereaux() {
   // Ne pas rafraîchir les bulletins disponibles pendant qu'une modal est ouverte
   useEffect(() => {
     if (!showCreateModal && !editTarget) fetchData();
-  }, [filterMois, showCreateModal, editTarget]);
+  }, [filterPeriode, showCreateModal, editTarget]);
 
   const openCreateModal = () => {
     setBordereauForm({ numero_bordereau: '', date_envoi: '', statut: 'En attente', commentaire: '' });
@@ -1435,7 +1436,13 @@ export default function Bordereaux() {
       setShowCreateModal(false);
       fetchData();
     } catch (err) {
-      showNotif(err.response?.data?.message || 'Erreur lors de la création du bordereau.', 'error');
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors) {
+        const firstError = Object.values(serverErrors).flat()[0];
+        showNotif(firstError || 'Erreur de validation. Vérifiez les champs.', 'error');
+      } else {
+        showNotif(err.response?.data?.message || 'Erreur lors de la création du bordereau.', 'error');
+      }
     } finally {
       setBordereauLoading(false);
     }
@@ -1540,48 +1547,36 @@ export default function Bordereaux() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedBordereauIds.length === bordereaux.length) {
+    if (selectedBordereauIds.length === bordereauxFiltres.length) {
       setSelectedBordereauIds([]);
     } else {
-      setSelectedBordereauIds(bordereaux.map(b => b.id_bordereau));
+      setSelectedBordereauIds(bordereauxFiltres.map(b => b.id_bordereau));
     }
   };
 
-  const openBatchEditModal = () => {
-    setBatchEditForm({ statut: '' });
-    setBatchEditMode(true);
-  };
-
-  const handleBatchEditSubmit = async (e) => {
-    e.preventDefault();
-    if (!batchEditForm.statut || selectedBordereauIds.length === 0) return;
-    setBatchEditLoading(true);
+  const handleMassDelete = async () => {
+    const count = selectedBordereauIds.length;
+    if (!window.confirm(`Confirmer la suppression de ${count} bordereau${count > 1 ? 'x' : ''} ? Les bulletins liés seront également supprimés.`)) return;
+    setMassDeleting(true);
     try {
-      const responses = await Promise.allSettled(
-        selectedBordereauIds.map(async (id) => {
-          // Récupérer le bordereau d'abord pour ne pas écraser les autres champs
-          const { data: current } = await api.get(`/bordereaux/${id}`);
-          const bordereau = current.data || current;
-          return api.put(`/bordereaux/${id}`, {
-            numero_bordereau: bordereau.numero_bordereau,
-            date_envoi: bordereau.date_envoi || '',
-            statut: batchEditForm.statut,
-            commentaire: bordereau.commentaire || '',
-          });
-        })
-      );
-      const successCount = responses.filter(r => r.status === 'fulfilled').length;
-      const errorCount = responses.filter(r => r.status === 'rejected').length;
-      showNotif(`${successCount} bordereau(x) mis à jour en « ${batchEditForm.statut} »${errorCount > 0 ? ` (${errorCount} erreur(s))` : ''}.`);
-      setBatchEditMode(false);
+      await Promise.all(selectedBordereauIds.map(id => api.delete(`/bordereaux/${id}`)));
+      showNotif(`${count} bordereau${count > 1 ? 'x' : ''} supprimé${count > 1 ? 's' : ''} avec succès.`);
       setSelectedBordereauIds([]);
       fetchData();
     } catch (err) {
-      showNotif('Erreur lors de la modification groupée.', 'error');
+      showNotif('Erreur lors de la suppression en masse.', 'error');
     } finally {
-      setBatchEditLoading(false);
+      setMassDeleting(false);
     }
   };
+
+  // Filtrer les bordereaux côté client selon la recherche par N° bordereau et statut
+  const bordereauxFiltres = bordereaux.filter(b => {
+    if (filterStatut && b.statut !== filterStatut) return false;
+    if (!searchNumero.trim()) return true;
+    const q = searchNumero.trim().toLowerCase();
+    return (b.numero_bordereau || '').toLowerCase().includes(q);
+  });
 
   return (
     <div className="space-y-4">
@@ -1594,25 +1589,70 @@ export default function Bordereaux() {
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Bordereaux</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {bordereaux.length} bordereaux ·{' '}
-            {bordereaux.reduce((sum, b) => sum + ((b.bulletinSoins || b.bulletin_soins || []).length), 0)} bulletin(s) dans les bordereaux
+            {bordereauxFiltres.length} bordereaux sur {bordereaux.length} ·{' '}
+            {bordereauxFiltres.reduce((sum, b) => sum + ((b.bulletinSoins || b.bulletin_soins || []).length), 0)} bulletin(s)
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Filtre mois */}
-          <select
-            value={filterMois}
-            onChange={(e) => setFilterMois(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-          >
-            <option value="">Tous mois</option>
-            {Object.entries({ 1: 'Janvier', 2: 'Février', 3: 'Mars', 4: 'Avril', 5: 'Mai', 6: 'Juin', 7: 'Juillet', 8: 'Août', 9: 'Septembre', 10: 'Octobre', 11: 'Novembre', 12: 'Décembre' }).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </select>
-          {filterMois && (
+          {/* Recherche par N° bordereau */}
+          <div className="relative">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchNumero}
+              onChange={(e) => setSearchNumero(e.target.value)}
+              placeholder="N° bordereau…"
+              className="pl-8 pr-3 py-2 w-44 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            {searchNumero && (
+              <button
+                onClick={() => setSearchNumero('')}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 rounded transition"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {/* Filtre par statut */}
+          <div className="relative">
+            <select
+              value={filterStatut}
+              onChange={(e) => setFilterStatut(e.target.value)}
+              className="px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white appearance-none cursor-pointer"
+            >
+              <option value="">Tous les statuts</option>
+              <option value="En attente">En attente</option>
+              <option value="Envoyé">Envoyé</option>
+              <option value="Traité">Traité</option>
+            </select>
+            <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            {filterStatut && (
+              <button
+                onClick={() => setFilterStatut('')}
+                className="absolute right-7 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 rounded transition"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {/* Filtre calendrier (mois + année) */}
+          <input
+            type="month"
+            value={filterPeriode}
+            onChange={(e) => setFilterPeriode(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+          {filterPeriode && (
             <button
-              onClick={() => { setFilterMois(''); }}
+              onClick={() => { setFilterPeriode(''); }}
               className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
               title="Réinitialiser les filtres"
             >
@@ -1642,13 +1682,25 @@ export default function Bordereaux() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={openBatchEditModal}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition flex items-center gap-1.5"
+              onClick={handleMassDelete}
+              disabled={massDeleting}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition flex items-center gap-1.5 ${
+                massDeleting
+                  ? 'bg-red-300 text-white cursor-not-allowed'
+                  : 'bg-red-600 text-white hover:bg-red-700 shadow-sm'
+              }`}
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Modifier le statut
+              {massDeleting ? (
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              )}
+              {massDeleting ? 'Suppression...' : `Supprimer (${selectedBordereauIds.length})`}
             </button>
             <button
               onClick={() => setSelectedBordereauIds([])}
@@ -1669,7 +1721,7 @@ export default function Bordereaux() {
                 <th className="w-10 px-2 py-3 text-center">
                   <input
                     type="checkbox"
-                    checked={bordereaux.length > 0 && selectedBordereauIds.length === bordereaux.length}
+                    checked={bordereauxFiltres.length > 0 && selectedBordereauIds.length === bordereauxFiltres.length}
                     onChange={toggleSelectAll}
                     className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
                   />
@@ -1688,7 +1740,7 @@ export default function Bordereaux() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {bordereaux.map((b) => {
+              {bordereauxFiltres.map((b) => {
                 const stats = b.stats_bulletins || { en_attente: 0, valide: 0, rejete: 0, sous_controle: 0, total: 0 };
                 return (
                   <tr
@@ -1802,7 +1854,7 @@ export default function Bordereaux() {
                   </tr>
                 );
               })}
-              {!loading && bordereaux.length === 0 && (
+              {!loading && bordereauxFiltres.length === 0 && (
                 <tr><td colSpan={12} className="text-center py-8 text-gray-500">0 bordereau</td></tr>
               )}
             </tbody>
@@ -1868,64 +1920,6 @@ export default function Bordereaux() {
           onVerifyPdf={openVerifyPdfModal}
           envoyerLoading={envoyerLoading}
         />
-      )}
-
-      {/* Batch edit modal */}
-      {batchEditMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setBatchEditMode(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900">Modification groupée</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">{selectedBordereauIds.length} bordereau(x) sélectionné(s)</p>
-                </div>
-              </div>
-              <button onClick={() => setBatchEditMode(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">&times;</button>
-            </div>
-            <form onSubmit={handleBatchEditSubmit} className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Nouveau statut <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={batchEditForm.statut}
-                  onChange={(e) => setBatchEditForm({ ...batchEditForm, statut: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                >
-                  <option value="">Sélectionner un statut…</option>
-                  <option value="En attente">En attente</option>
-                  <option value="Envoyé">Envoyé</option>
-                  <option value="Traité">Traité</option>
-                </select>
-              </div>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 flex items-start gap-2">
-                <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-                <span>Cette action modifiera le statut de <strong>{selectedBordereauIds.length} bordereau(x)</strong>. Cette opération est irréversible.</span>
-              </div>
-              <div className="pt-2 flex justify-end gap-3 border-t border-gray-100">
-                <button type="button" onClick={() => setBatchEditMode(false)} disabled={batchEditLoading} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition disabled:opacity-50">Annuler</button>
-                <button type="submit" disabled={batchEditLoading || !batchEditForm.statut} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
-                  {batchEditLoading && (
-                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  )}
-                  Appliquer à {selectedBordereauIds.length} bordereau(x)
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
 
       {/* Vérification PDF modal */}

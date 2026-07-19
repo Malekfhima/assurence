@@ -174,7 +174,7 @@ function BulletinDetailView({ bulletin, onBack }) {
           <div>
             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Bénéficiaire</p>
             <p className="text-gray-800 mt-0.5">
-              {bulletin.sous_adherent ? `${bulletin.sous_adherent.prenom} ${bulletin.sous_adherent.nom}` : "L'adhérent"}
+              {bulletin.sous_adherent ? `${bulletin.sous_adherent.prenom} ${bulletin.sous_adherent.nom}` : (bulletin.description || "L'adhérent")}
             </p>
           </div>
           <div>
@@ -360,8 +360,14 @@ export default function Historique() {
       // Rafraîchir la liste
       fetchData();
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Erreur lors de la création du bordereau.';
-      setCreateError(msg);
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors) {
+        const firstError = Object.values(serverErrors).flat()[0];
+        setCreateError(firstError || 'Erreur de validation. Vérifiez les champs.');
+      } else {
+        const msg = err.response?.data?.message || err.message || 'Erreur lors de la création du bordereau.';
+        setCreateError(msg);
+      }
     } finally {
       setBordereauLoading(false);
     }
@@ -601,7 +607,7 @@ export default function Historique() {
                       <span className="font-mono text-xs">{b.adherent?.matricule || '-'}</span>
                     </td>
                     <td className="px-4 py-3 text-gray-500">
-                      {b.sous_adherent ? `${b.sous_adherent.nom} ${b.sous_adherent.prenom}` : "L'adhérent"}
+                      {b.sous_adherent ? `${b.sous_adherent.nom} ${b.sous_adherent.prenom}` : (b.description || "L'adhérent")}
                     </td>
                     <td className="px-4 py-3">
                       <span className={etatBadge(b.etat)}>{b.etat}</span>

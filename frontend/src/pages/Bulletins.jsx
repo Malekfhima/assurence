@@ -473,7 +473,7 @@ function ViewBulletinModal({ bulletin, onClose, onEdit, onPreviewPdf }) {
             <div>
               <span className="text-xs text-gray-500 uppercase tracking-wide">Bénéficiaire</span>
               <p className="text-sm font-medium text-gray-900 mt-0.5">
-                {bulletin.sous_adherent ? `${bulletin.sous_adherent.prenom} ${bulletin.sous_adherent.nom}` : 'L\'adhérent'}
+                {bulletin.sous_adherent ? `${bulletin.sous_adherent.prenom} ${bulletin.sous_adherent.nom}` : (bulletin.description || 'L\'adhérent')}
               </p>
             </div>
             <div>
@@ -1081,7 +1081,7 @@ export default function Bulletins() {
     // (pas seulement ceux de la page courante) sont chargées pour le modal
     if (selectedBulletinIds.length > 0) {
       try {
-        const res = await api.get('/bulletins', { params: { per_page: 9999 } });
+        const res = await api.get('/bulletins', { params: { per_page: 9999, available: 1 } });
         if (res.data.success) {
           const allBulletins = res.data.data || [];
           const selected = allBulletins.filter(b => selectedBulletinIds.includes(b.id_bulletin));
@@ -1118,7 +1118,14 @@ export default function Bulletins() {
       // Rediriger vers la page Bordereaux pour voir le bordereau créé
       navigate('/bordereaux');
     } catch (err) {
-      showNotif(err.response?.data?.message || 'Erreur lors de la création du bordereau.', 'error');
+      console.error('Erreur création bordereau:', err);
+      const serverErrors = err.response?.data?.errors;
+      if (serverErrors) {
+        const firstError = Object.values(serverErrors).flat()[0];
+        showNotif(firstError || 'Erreur de validation. Vérifiez les champs.', 'error');
+      } else {
+        showNotif(err.response?.data?.message || 'Erreur lors de la création du bordereau.', 'error');
+      }
     } finally {
       setBordereauLoading(false);
     }
@@ -1266,7 +1273,7 @@ export default function Bulletins() {
                     <td className="px-4 py-3 font-medium text-gray-900">{b.numero_bulletin}</td>
                     <td className="px-4 py-3 text-gray-700">{b.adherent?.nom} {b.adherent?.prenom}</td>
                     <td className="px-4 py-3 text-gray-500">
-                      {b.sous_adherent ? `${b.sous_adherent.nom} ${b.sous_adherent.prenom}` : 'L\'adhérent'}
+                      {b.sous_adherent ? `${b.sous_adherent.nom} ${b.sous_adherent.prenom}` : (b.description || 'L\'adhérent')}
                     </td>
                     <td className="px-4 py-3 text-gray-900 font-medium">{Number(b.montant_depense || 0).toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT</td>
                     <td className="px-4 py-3"><span className={etatBadge(b.etat)}>{b.etat}</span></td>

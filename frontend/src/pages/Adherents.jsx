@@ -118,6 +118,7 @@ export default function Adherents() {
   const [adherents, setAdherents] = useState([]);
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [search, setSearch] = useState('');
+  const [filterStatut, setFilterStatut] = useState('');
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // null | 'add' | 'edit' | 'view'
   const [selected, setSelected] = useState(null);
@@ -135,6 +136,7 @@ export default function Adherents() {
     try {
       const params = { page, per_page: 15 };
       if (search) params.search = search;
+      if (filterStatut) params.statut = filterStatut;
       const res = await api.get('/adherents', { params });
       if (res.data.success) {
         setAdherents(res.data.data);
@@ -154,7 +156,7 @@ export default function Adherents() {
   useEffect(() => {
     const timer = setTimeout(() => fetchAdherents(), 300);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, filterStatut]);
 
   const openModal = async (type, adherent = null) => {
     if (type === 'edit' && adherent) {
@@ -247,10 +249,37 @@ export default function Adherents() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-        <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="Rechercher par matricule..." value={search} onChange={(e) => setSearch(e.target.value.replace(/\D/g, ''))} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="Rechercher par matricule..." value={search} onChange={(e) => setSearch(e.target.value.replace(/\D/g, ''))} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+        </div>
+        {/* Filtre par statut */}
+        <div className="relative">
+          <select
+            value={filterStatut}
+            onChange={(e) => setFilterStatut(e.target.value)}
+            className="px-3 py-2 pr-8 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white appearance-none cursor-pointer"
+          >
+            <option value="">Tous les statuts</option>
+            <option value="Actif">Actif</option>
+            <option value="Inactif">Inactif</option>
+          </select>
+          <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+          {filterStatut && (
+            <button
+              onClick={() => setFilterStatut('')}
+              className="absolute right-7 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 rounded transition"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -278,7 +307,11 @@ export default function Adherents() {
                   <td className="px-4 py-3 text-gray-500">{a.cin || '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{a.telephone || '-'}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${a.statut?.toLowerCase() === 'actif' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-gray-100 text-gray-600 border border-gray-200'}`}>{a.statut?.toLowerCase() === 'actif' ? 'Actif' : a.statut}</span>
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
+                      a.statut?.toLowerCase() === 'actif'
+                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                        : 'bg-red-100 text-red-800 border border-red-300'
+                    }`}>{a.statut || 'Inactif'}</span>
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-sm font-semibold">{a.sous_adherents_count ?? 0}</span>
